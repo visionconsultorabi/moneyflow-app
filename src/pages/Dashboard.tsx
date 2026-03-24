@@ -140,7 +140,7 @@ export function Dashboard() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="page-header desktop-only">
         <div>
           <h1 className="page-title">MoneyFlow</h1>
           <p className="page-subtitle">Gestión de finanzas</p>
@@ -157,6 +157,16 @@ export function Dashboard() {
             <Plus size={18} /> Nuevo
           </button>
         </div>
+      </div>
+
+      <div className="mobile-only" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button 
+          className="btn btn-ghost" 
+          onClick={() => setShowBalances(!showBalances)}
+          style={{ padding: 8, minHeight: 'auto', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)' }}
+        >
+          {showBalances ? <Eye size={20} /> : <EyeOff size={20} />} Modo Privacidad
+        </button>
       </div>
 
       {/* Alerts Section */}

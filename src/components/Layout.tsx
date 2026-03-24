@@ -1,9 +1,30 @@
-import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, CreditCard, Plus, PieChart, BarChart2, Settings, LogOut, Wallet, Target, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { LayoutDashboard, CreditCard, Plus, PieChart, BarChart2, Settings, LogOut, Wallet, Target, RefreshCw, Menu, X, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 export function Layout() {
   const { signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
+
+  const getPageTitle = () => {
+    switch(location.pathname) {
+      case '/': return 'MoneyFlow';
+      case '/accounts': return 'Cuentas';
+      case '/cards': return 'Tarjetas';
+      case '/transactions': return 'Transacciones';
+      case '/reports': return 'Reportes';
+      case '/budgets': return 'Presupuestos';
+      case '/savings': return 'Ahorros';
+      case '/recurring': return 'Recurrentes';
+      case '/settings': return 'Configuración';
+      case '/new-transaction': return 'Nueva Transacción';
+      default: return 'MoneyFlow';
+    }
+  };
 
   return (
     <div className="app-layout">
@@ -59,6 +80,56 @@ export function Layout() {
         </div>
       </aside>
 
+      {/* Mobile Top Bar */}
+      <header className="mobile-header">
+        <div className="mobile-logo">
+          {location.pathname === '/' && <span>💰</span>}
+          <h1>{getPageTitle()}</h1>
+        </div>
+        <div className="mobile-actions">
+          <button onClick={toggleTheme} className="btn-icon">
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+          <button onClick={() => setIsMenuOpen(true)} className="btn-icon">
+            <Menu size={20} />
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Menu Drawer */}
+      {isMenuOpen && (
+        <div className="menu-overlay" onClick={() => setIsMenuOpen(false)}>
+          <div className="menu-drawer" onClick={e => e.stopPropagation()}>
+            <div className="menu-header">
+              <h2>Menú</h2>
+              <button onClick={() => setIsMenuOpen(false)} className="btn-icon">
+                <X size={20} />
+              </button>
+            </div>
+            <nav className="menu-nav">
+              <NavLink to="/transactions" onClick={() => setIsMenuOpen(false)} className="menu-link">
+                <PieChart size={20} /> Transacciones
+              </NavLink>
+              <NavLink to="/budgets" onClick={() => setIsMenuOpen(false)} className="menu-link">
+                <PieChart size={20} /> Presupuestos
+              </NavLink>
+              <NavLink to="/savings" onClick={() => setIsMenuOpen(false)} className="menu-link">
+                <Target size={20} /> Ahorros
+              </NavLink>
+              <NavLink to="/recurring" onClick={() => setIsMenuOpen(false)} className="menu-link">
+                <RefreshCw size={20} /> Recurrentes
+              </NavLink>
+              <NavLink to="/settings" onClick={() => setIsMenuOpen(false)} className="menu-link">
+                <Settings size={20} /> Configuración
+              </NavLink>
+              <button onClick={() => { signOut(); setIsMenuOpen(false); }} className="menu-link" style={{ color: 'var(--danger)', marginTop: 'auto' }}>
+                <LogOut size={20} /> Cerrar Sesión
+              </button>
+            </nav>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="main-content">
         <Outlet />
@@ -70,20 +141,20 @@ export function Layout() {
           <LayoutDashboard />
           <span>Inicio</span>
         </NavLink>
-        <NavLink to="/cards" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
-          <CreditCard />
-          <span>Tarjetas</span>
+        <NavLink to="/accounts" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
+          <Wallet />
+          <span>Cuentas</span>
         </NavLink>
         <NavLink to="/new-transaction" className="bottom-nav-add">
           <Plus />
         </NavLink>
-        <NavLink to="/budgets" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
-          <PieChart />
-          <span>Presupuestos</span>
+        <NavLink to="/cards" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
+          <CreditCard />
+          <span>Tarjetas</span>
         </NavLink>
-        <NavLink to="/settings" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
-          <Settings />
-          <span>Más</span>
+        <NavLink to="/reports" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
+          <BarChart2 />
+          <span>Reportes</span>
         </NavLink>
       </nav>
     </div>
