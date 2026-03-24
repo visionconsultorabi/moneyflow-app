@@ -1,17 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Primary - Rich Green */
-  --primary-50: #E8F5E9;
-  --primary-100: #C8E6C9;
-  --primary-200: #A5D6A7;
-  --primary-300: #81C784;
-  --primary-400: #66BB6A;
-  --primary-500: #4CAF50;
-  --primary-600: #43A047;
-  --primary-700: #388E3C;
-  --primary-800: #2E7D32;
-  --primary-900: #1B5E20;
+  /* Primary - Azure Blue */
+  --primary-50: #F0F9FF;
+  --primary-100: #E0F2FE;
+  --primary-200: #BAE6FD;
+  --primary-300: #7DD3FC;
+  --primary-400: #38BDF8;
+  --primary-500: #0EA5E9;
+  --primary-600: #0284C7;
+  --primary-700: #0369A1;
+  --primary-800: #075985;
+  --primary-900: #0C4A6E;
 
   /* Neutral */
   --gray-50: #F8FAFC;
@@ -261,7 +261,7 @@ body {
   .sidebar-logo h1 {
     font-size: 20px;
     font-weight: 700;
-    background: linear-gradient(135deg, var(--primary-400), var(--emerald-500));
+    background: linear-gradient(135deg, var(--primary-400), var(--blue-500));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -338,7 +338,7 @@ body {
 }
 
 .balance-card {
-  background: linear-gradient(135deg, var(--primary-900), var(--primary-700));
+  background: linear-gradient(135deg, var(--primary-900), var(--primary-600));
   border: none;
   border-radius: var(--radius-xl);
   padding: 28px 24px;

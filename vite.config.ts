@@ -12,7 +12,7 @@ export default defineConfig({
         name: 'MoneyFlow',
         short_name: 'MoneyFlow',
         description: 'Gestión integral de finanzas personales',
-        theme_color: '#1B5E20',
+        theme_color: '#0EA5E9',
         background_color: '#0A0E14',
         display: 'standalone',
         start_url: '/',
