@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account } from '../types/database';
-import { Plus, X, Wallet } from 'lucide-react';
+import { Plus, X, Wallet, Edit2 } from 'lucide-react';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -35,6 +35,7 @@ export function Accounts() {
     initial_balance: '',
     color: '#3B82F6',
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => { if (user) loadAccounts(); }, [user]);
 
@@ -48,22 +49,54 @@ export function Accounts() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const balance = parseFloat(form.initial_balance) || 0;
-    const { error } = await supabase.from('accounts').insert({
-      user_id: user!.id,
-      name: form.name,
-      account_type: form.account_type,
-      institution: form.institution || null,
-      currency: form.currency,
-      initial_balance: balance,
-      current_balance: balance,
-      icon: accountTypeIcons[form.account_type] || '🏦',
-      color: form.color,
-    });
-    if (!error) {
-      setShowForm(false);
-      setForm({ name: '', account_type: 'bank', institution: '', currency: 'ARS', initial_balance: '', color: '#3B82F6' });
-      loadAccounts();
+    
+    if (editingId) {
+      const { error } = await supabase.from('accounts').update({
+        name: form.name,
+        account_type: form.account_type,
+        institution: form.institution || null,
+        currency: form.currency,
+        icon: accountTypeIcons[form.account_type] || '🏦',
+        color: form.color,
+      }).eq('id', editingId);
+
+      if (!error) {
+        setEditingId(null);
+        setShowForm(false);
+        setForm({ name: '', account_type: 'bank', institution: '', currency: 'ARS', initial_balance: '', color: '#3B82F6' });
+        loadAccounts();
+      }
+    } else {
+      const { error } = await supabase.from('accounts').insert({
+        user_id: user!.id,
+        name: form.name,
+        account_type: form.account_type,
+        institution: form.institution || null,
+        currency: form.currency,
+        initial_balance: balance,
+        current_balance: balance,
+        icon: accountTypeIcons[form.account_type] || '🏦',
+        color: form.color,
+      });
+      if (!error) {
+        setShowForm(false);
+        setForm({ name: '', account_type: 'bank', institution: '', currency: 'ARS', initial_balance: '', color: '#3B82F6' });
+        loadAccounts();
+      }
     }
+  }
+
+  function startEdit(account: Account) {
+    setForm({
+      name: account.name,
+      account_type: account.account_type,
+      institution: account.institution || '',
+      currency: account.currency,
+      initial_balance: account.initial_balance.toString(),
+      color: account.color || '#3B82F6',
+    });
+    setEditingId(account.id);
+    setShowForm(true);
   }
 
   async function deleteAccount(id: string) {
@@ -110,9 +143,14 @@ export function Accounts() {
                 <div className="account-balance" style={{ color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                   {formatMoney(Number(account.current_balance))}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); deleteAccount(account.id); }} className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                  Eliminar
-                </button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4, justifyContent: 'flex-end' }}>
+                  <button onClick={(e) => { e.stopPropagation(); startEdit(account); }} className="btn btn-ghost btn-sm" style={{ padding: 4 }}>
+                    <Edit2 size={14} />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); deleteAccount(account.id); }} className="btn btn-ghost btn-sm" style={{ padding: 4, color: 'var(--danger)' }}>
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -125,8 +163,8 @@ export function Accounts() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-handle" />
             <div className="modal-header">
-              <h2 className="modal-title">Nueva Cuenta</h2>
-              <button className="modal-close" onClick={() => setShowForm(false)}><X size={18} /></button>
+              <h2 className="modal-title">{editingId ? 'Editar Cuenta' : 'Nueva Cuenta'}</h2>
+              <button className="modal-close" onClick={() => { setShowForm(false); setEditingId(null); setForm({ name: '', account_type: 'bank', institution: '', currency: 'ARS', initial_balance: '', color: '#3B82F6' }); }}><X size={18} /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -163,7 +201,9 @@ export function Accounts() {
                 <label className="form-label">Color</label>
                 <input type="color" value={form.color} onChange={e => setForm({...form, color: e.target.value})} style={{ width: 60, height: 40, border: 'none', background: 'none', cursor: 'pointer' }} />
               </div>
-              <button type="submit" className="btn btn-primary btn-block btn-lg">Crear Cuenta</button>
+              <button type="submit" className="btn btn-primary btn-block btn-lg">
+                {editingId ? 'Guardar Cambios' : 'Crear Cuenta'}
+              </button>
             </form>
           </div>
         </div>

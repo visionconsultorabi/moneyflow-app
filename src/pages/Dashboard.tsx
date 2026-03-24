@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, Transaction, MonthlyInstallment, SavingsGoal } from '../types/database';
-import { Plus, ArrowRightLeft, CreditCard, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowRightLeft, CreditCard, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 
 function formatMoney(amount: number, currency = 'ARS') {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -17,6 +17,14 @@ export function Dashboard() {
   const [monthlyInstallments, setMonthlyInstallments] = useState<MonthlyInstallment[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showBalances, setShowBalances] = useState(() => {
+    const saved = localStorage.getItem('mf_show_balances');
+    return saved === null ? true : saved === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mf_show_balances', String(showBalances));
+  }, [showBalances]);
 
   useEffect(() => {
     if (user) loadData();
@@ -98,7 +106,6 @@ export function Dashboard() {
   const totalInstallmentsThisMonth = monthlyInstallments.filter(i => i.status === 'pending').reduce((sum, i) => sum + Number(i.amount), 0);
   // (Assuming installments are in primary currency ARS for simplicity in real-available calculation)
   const primaryCurrency = 'ARS';
-  const availableReal = (totalsByCurrency[primaryCurrency] || 0) - totalInstallmentsThisMonth;
 
   const monthExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
   const monthIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
@@ -135,12 +142,21 @@ export function Dashboard() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">Resumen de tus finanzas</p>
+          <h1 className="page-title">MoneyFlow</h1>
+          <p className="page-subtitle">Gestión de finanzas</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/new-transaction')}>
-          <Plus size={18} /> Nuevo
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button 
+            className="btn btn-ghost" 
+            onClick={() => setShowBalances(!showBalances)}
+            style={{ padding: 8, minHeight: 'auto' }}
+          >
+            {showBalances ? <Eye size={22} /> : <EyeOff size={22} />}
+          </button>
+          <button className="btn btn-primary" onClick={() => navigate('/new-transaction')}>
+            <Plus size={18} /> Nuevo
+          </button>
+        </div>
       </div>
 
       {/* Alerts Section */}
@@ -162,21 +178,23 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Balance Card */}
-      <div className="balance-card" style={{ marginBottom: 20 }}>
-        <div className="label">Balance Total</div>
-        <div className="amount">
-          {Object.entries(totalsByCurrency).map(([curr, amt], i) => (
-            <div key={curr} style={{ fontSize: i === 0 ? '2.5rem' : '1.5rem', opacity: i === 0 ? 1 : 0.8 }}>
-              {formatMoney(amt, curr)}
+      {/* Balance Card Section */}
+      <div className="balance-card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div className="label">Balance Total</div>
+            {Object.entries(totalsByCurrency).map(([curr, amount]) => (
+              <div key={curr} className="amount" style={{ fontSize: Object.keys(totalsByCurrency).length > 1 ? 28 : 36 }}>
+                {showBalances ? formatMoney(amount, curr) : '****'}
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div className="label" style={{ opacity: 0.8 }}>Gasto este mes</div>
+            <div className="amount" style={{ fontSize: 24, color: 'rgba(255,255,255,0.9)' }}>
+              {showBalances ? formatMoney(totalInstallmentsThisMonth, primaryCurrency) : '****'}
             </div>
-          ))}
-        </div>
-        <div className="sub-amount">
-          Disponible real ({primaryCurrency}): {formatMoney(availableReal, primaryCurrency)}
-          {totalInstallmentsThisMonth > 0 && (
-            <span> (cuotas mes: {formatMoney(totalInstallmentsThisMonth, primaryCurrency)})</span>
-          )}
+          </div>
         </div>
       </div>
 
@@ -184,11 +202,11 @@ export function Dashboard() {
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-label">Ingresos</div>
-          <div className="stat-value positive">{formatMoney(monthIncome)}</div>
+          <div className="stat-value positive">{showBalances ? formatMoney(monthIncome) : '****'}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Gastos</div>
-          <div className="stat-value negative">{formatMoney(monthExpenses)}</div>
+          <div className="stat-value negative">{showBalances ? formatMoney(monthExpenses) : '****'}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Tarjetas</div>
@@ -196,7 +214,7 @@ export function Dashboard() {
         </div>
         <div className="stat-card">
           <div className="stat-label">Cuotas Mes</div>
-          <div className="stat-value negative">{formatMoney(totalInstallmentsThisMonth)}</div>
+          <div className="stat-value negative">{showBalances ? formatMoney(totalInstallmentsThisMonth) : '****'}</div>
         </div>
       </div>
 
@@ -230,7 +248,7 @@ export function Dashboard() {
                     <div className={`utilization-fill ${utilClass}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-muted)' }}>
-                    <span>Disponible: {formatMoney(Number(card.current_balance), card.currency)}</span>
+                    <span>Disponible: {showBalances ? formatMoney(Number(card.current_balance), card.currency) : '****'}</span>
                     <span>{pct}% usado</span>
                   </div>
                 </div>
@@ -255,7 +273,7 @@ export function Dashboard() {
                 <div className="transaction-desc">{inst.description || 'Cuota'}</div>
                 <div className="transaction-category">{inst.card_name} · Cuota {inst.installment_number}/{inst.total_installments}</div>
               </div>
-              <div className="transaction-amount expense">{formatMoney(Number(inst.amount), primaryCurrency)}</div>
+              <div className="transaction-amount expense">{showBalances ? formatMoney(Number(inst.amount), primaryCurrency) : '****'}</div>
             </div>
           ))}
         </div>
@@ -293,7 +311,7 @@ export function Dashboard() {
                   )}
                 </div>
                 <div className={`transaction-amount ${tx.type}`}>
-                  {tx.type === 'income' ? '+' : '-'}{formatMoney(Number(tx.amount), (tx as any).account?.currency)}
+                  {showBalances ? (tx.type === 'expense' ? `-${formatMoney(tx.amount || 0, (tx as any).account?.currency)}` : formatMoney(tx.amount || 0, (tx as any).account?.currency)) : '****'}
                 </div>
               </div>
             ))}
@@ -328,7 +346,7 @@ export function Dashboard() {
                   <div className="account-institution">{account.institution || account.account_type}</div>
                 </div>
                 <div className="account-balance" style={{ color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                  {formatMoney(Number(account.current_balance), account.currency)}
+                  {showBalances ? formatMoney(Number(account.current_balance), account.currency) : '****'}
                 </div>
               </div>
             ))}
@@ -356,7 +374,7 @@ export function Dashboard() {
                     <div className="utilization-fill" style={{ width: `${pct}%`, background: goal.color }} />
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {formatMoney(Number(goal.current_amount), primaryCurrency)} de {formatMoney(Number(goal.target_amount), primaryCurrency)}
+                    {showBalances ? `${formatMoney(Number(goal.current_amount), primaryCurrency)} de ${formatMoney(Number(goal.target_amount), primaryCurrency)}` : '**** de ****'}
                   </div>
                 </div>
               );
@@ -383,7 +401,7 @@ export function Dashboard() {
                   <div className="account-institution">Saldo a favor</div>
                 </div>
                 <div className="account-balance" style={{ color: 'var(--success)' }}>
-                  {formatMoney(Number(account.current_balance), account.currency)}
+                  {showBalances ? formatMoney(Number(account.current_balance), account.currency) : '****'}
                 </div>
               </div>
             ))}

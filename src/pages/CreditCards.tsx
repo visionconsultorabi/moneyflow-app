@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, InstallmentPlan } from '../types/database';
-import { Plus, X, CreditCard } from 'lucide-react';
+import { Plus, X, CreditCard, Edit2 } from 'lucide-react';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -19,6 +19,7 @@ export function CreditCards() {
     billing_close_day: '25', payment_due_day: '10', interest_rate: '',
     linked_account_id: '', color: '#8B5CF6',
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => { if (user) loadData(); }, [user]);
 
@@ -38,29 +39,60 @@ export function CreditCards() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const limit = parseFloat(form.credit_limit) || 0;
-    const { error } = await supabase.from('accounts').insert({
-      user_id: user!.id,
+    
+    const payload = {
       name: form.name,
-      account_type: 'credit_card',
       institution: form.institution || null,
-      currency: 'ARS',
-      initial_balance: limit,
-      current_balance: limit,
       credit_limit: limit,
       billing_close_day: parseInt(form.billing_close_day) || 25,
       payment_due_day: parseInt(form.payment_due_day) || 10,
       interest_rate: parseFloat(form.interest_rate) || null,
       linked_account_id: form.linked_account_id || null,
       last_four_digits: form.last_four_digits || null,
-      icon: '💳',
       color: form.color,
-      include_in_total: false,
-    });
-    if (!error) {
-      setShowForm(false);
-      setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6' });
-      loadData();
+    };
+
+    if (editingId) {
+      const { error } = await supabase.from('accounts').update(payload).eq('id', editingId);
+      if (!error) {
+        setEditingId(null);
+        setShowForm(false);
+        setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6' });
+        loadData();
+      }
+    } else {
+      const { error } = await supabase.from('accounts').insert({
+        ...payload,
+        user_id: user!.id,
+        account_type: 'credit_card',
+        currency: 'ARS',
+        initial_balance: limit,
+        current_balance: limit,
+        icon: '💳',
+        include_in_total: false,
+      });
+      if (!error) {
+        setShowForm(false);
+        setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6' });
+        loadData();
+      }
     }
+  }
+
+  function startEdit(card: Account) {
+    setForm({
+      name: card.name,
+      institution: card.institution || '',
+      last_four_digits: card.last_four_digits || '',
+      credit_limit: card.credit_limit?.toString() || '',
+      billing_close_day: card.billing_close_day?.toString() || '25',
+      payment_due_day: card.payment_due_day?.toString() || '10',
+      interest_rate: card.interest_rate?.toString() || '',
+      linked_account_id: card.linked_account_id || '',
+      color: card.color || '#8B5CF6',
+    });
+    setEditingId(card.id);
+    setShowForm(true);
   }
 
   async function deleteCard(id: string) {
@@ -196,9 +228,12 @@ export function CreditCards() {
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                    <button onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }} className="btn btn-ghost btn-sm" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                      Eliminar
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
+                    <button onClick={(e) => { e.stopPropagation(); startEdit(card); }} className="btn btn-ghost btn-sm" style={{ padding: 4 }}>
+                      <Edit2 size={16} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }} className="btn btn-ghost btn-sm" style={{ padding: 4, color: 'var(--danger)' }}>
+                      <X size={16} />
                     </button>
                   </div>
                 </div>
@@ -214,8 +249,8 @@ export function CreditCards() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-handle" />
             <div className="modal-header">
-              <h2 className="modal-title">Nueva Tarjeta</h2>
-              <button className="modal-close" onClick={() => setShowForm(false)}><X size={18} /></button>
+              <h2 className="modal-title">{editingId ? 'Editar Tarjeta' : 'Nueva Tarjeta'}</h2>
+              <button className="modal-close" onClick={() => { setShowForm(false); setEditingId(null); setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6' }); }}><X size={18} /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -261,7 +296,9 @@ export function CreditCards() {
                 <label className="form-label">Color</label>
                 <input type="color" value={form.color} onChange={e => setForm({...form, color: e.target.value})} style={{ width: 60, height: 40, border: 'none', background: 'none', cursor: 'pointer' }} />
               </div>
-              <button type="submit" className="btn btn-primary btn-block btn-lg">Crear Tarjeta</button>
+              <button type="submit" className="btn btn-primary btn-block btn-lg">
+                {editingId ? 'Guardar Cambios' : 'Crear Tarjeta'}
+              </button>
             </form>
           </div>
         </div>

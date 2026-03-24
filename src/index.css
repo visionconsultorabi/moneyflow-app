@@ -340,10 +340,11 @@ body {
 .balance-card {
   background: linear-gradient(135deg, var(--primary-900), var(--primary-600));
   border: none;
-  border-radius: var(--radius-xl);
-  padding: 28px 24px;
+  border-radius: var(--radius-lg);
+  padding: 20px;
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow-lg), 0 10px 30px -10px rgba(13, 148, 136, 0.3);
 }
 
 .balance-card::before {
@@ -366,10 +367,10 @@ body {
 }
 
 .balance-card .amount {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 800;
   color: white;
-  margin: 8px 0;
+  margin: 4px 0;
   letter-spacing: -1px;
 }
 
