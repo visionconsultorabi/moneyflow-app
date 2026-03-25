@@ -142,26 +142,28 @@ export function Accounts() {
       ) : (
         <div className="accounts-grid">
           {accounts.map(account => (
-            <div key={account.id} className="account-card">
-              <div className="account-icon-wrapper" style={{ background: account.color + '22' }}>
-                {account.icon}
-              </div>
-              <div className="account-info">
-                <div className="account-name">{account.name}</div>
-                <div className="account-institution">{account.institution || accountTypeLabels[account.account_type]}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="account-balance" style={{ color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+            <div key={account.id} className="account-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div className="account-icon-wrapper" style={{ background: account.color + '22', margin: 0 }}>
+                    {account.icon}
+                  </div>
+                  <div className="account-info">
+                    <div className="account-name">{account.name}</div>
+                    <div className="account-institution">{account.institution || accountTypeLabels[account.account_type]}</div>
+                  </div>
+                </div>
+                <div className="account-balance" style={{ margin: 0, color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                   {formatMoney(Number(account.current_balance))}
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4, justifyContent: 'flex-end' }}>
-                  <button onClick={(e) => { e.stopPropagation(); startEdit(account); }} className="btn btn-ghost btn-sm" style={{ padding: 4 }}>
-                    <Edit2 size={14} />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); deleteAccount(account.id); }} className="btn btn-ghost btn-sm" style={{ padding: 4, color: 'var(--danger)' }}>
-                    <X size={14} />
-                  </button>
-                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12, borderTop: '1px solid var(--border-light)', paddingTop: 8, justifyContent: 'flex-end' }}>
+                <button onClick={(e) => { e.stopPropagation(); startEdit(account); }} className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Edit2 size={13} /> Editar
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); deleteAccount(account.id); }} className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 12, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <X size={13} /> Eliminar
+                </button>
               </div>
             </div>
           ))}

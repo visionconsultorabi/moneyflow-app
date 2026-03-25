@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CreditCard, Plus, PieChart, BarChart2, Settings, LogOut, Wallet, Target, RefreshCw, Menu, X, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, CreditCard, Plus, PieChart, BarChart2, Settings, LogOut, Wallet, Target, RefreshCw, Menu, X, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 export function Layout() {
   const { signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, privacyMode, togglePrivacyMode } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
 
@@ -87,6 +87,9 @@ export function Layout() {
           <h1>{getPageTitle()}</h1>
         </div>
         <div className="mobile-actions">
+          <button onClick={togglePrivacyMode} className="btn-icon">
+            {privacyMode ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
           <button onClick={toggleTheme} className="btn-icon">
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>

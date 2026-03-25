@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, Transaction, MonthlyInstallment, SavingsGoal } from '../types/database';
-import { Plus, ArrowRightLeft, CreditCard, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { Plus, ArrowRightLeft, CreditCard, AlertTriangle } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 function formatMoney(amount: number, currency = 'ARS') {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -17,14 +18,8 @@ export function Dashboard() {
   const [monthlyInstallments, setMonthlyInstallments] = useState<MonthlyInstallment[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showBalances, setShowBalances] = useState(() => {
-    const saved = localStorage.getItem('mf_show_balances');
-    return saved === null ? true : saved === 'true';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('mf_show_balances', String(showBalances));
-  }, [showBalances]);
+  const { privacyMode } = useTheme();
+  const showBalances = privacyMode;
 
   useEffect(() => {
     if (user) loadData();
@@ -146,28 +141,13 @@ export function Dashboard() {
           <p className="page-subtitle">Gestión de finanzas</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button 
-            className="btn btn-ghost" 
-            onClick={() => setShowBalances(!showBalances)}
-            style={{ padding: 8, minHeight: 'auto' }}
-          >
-            {showBalances ? <Eye size={22} /> : <EyeOff size={22} />}
-          </button>
           <button className="btn btn-primary" onClick={() => navigate('/new-transaction')}>
             <Plus size={18} /> Nuevo
           </button>
         </div>
       </div>
 
-      <div className="mobile-only" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button 
-          className="btn btn-ghost" 
-          onClick={() => setShowBalances(!showBalances)}
-          style={{ padding: 8, minHeight: 'auto', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)' }}
-        >
-          {showBalances ? <Eye size={20} /> : <EyeOff size={20} />} Modo Privacidad
-        </button>
-      </div>
+
 
       {/* Alerts Section */}
       {alerts.length > 0 && (
