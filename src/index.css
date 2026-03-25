@@ -1466,3 +1466,20 @@ body {
     height: 300px !important;
   }
 }
+/* Budgets Page Styles */
+.budget-summary-grid {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 600px) {
+  .budget-summary-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+}
+
+@media (min-width: 900px) {
+  .budget-summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

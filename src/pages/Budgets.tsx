@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Budget, Category } from '../types/database';
-import { Plus, X, PieChart, Settings, Edit2, Trash2 } from 'lucide-react';
+import { Plus, X, PieChart, Settings, Edit2, Trash2, RefreshCw } from 'lucide-react';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -19,26 +19,71 @@ export function Budgets() {
   const [form, setForm] = useState({ category_id: '', amount: '' });
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [categoryForm, setCategoryForm] = useState({ name: '', icon: '📦' });
+  const [categoryForm, setCategoryForm] = useState<{name: string, icon: string, type: 'income' | 'expense'}>({ name: '', icon: '📦', type: 'expense' });
+  const [initialBalance, setInitialBalance] = useState(0);
+  const [scheduledCardPayments, setScheduledCardPayments] = useState(0);
 
   useEffect(() => { if (user) loadData(); }, [user, month, year]);
 
   async function loadData() {
+    setLoading(true);
     const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
     const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
 
-    const [budgetsRes, catsRes, txsRes, instsRes] = await Promise.all([
+    // Previous month dates for Initial Balance
+    const prevMonthDate = new Date(year, month - 2, 1);
+    const prevMonth = prevMonthDate.getMonth() + 1;
+    const prevYear = prevMonthDate.getFullYear();
+    const prevStart = new Date(prevYear, prevMonth - 1, 1).toISOString().split('T')[0];
+    const prevEnd = new Date(prevYear, prevMonth, 0).toISOString().split('T')[0];
+
+    const [budgetsRes, catsRes, txsRes, instsRes, prevBudgetsRes, prevTxsRes, prevInstsRes] = await Promise.all([
       supabase.from('budgets').select('*, category:categories(*)').eq('month', month).eq('year', year),
       supabase.from('categories').select('*').order('name'),
       supabase.from('transactions').select('amount, type, category_id').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
-      supabase.from('installments').select('amount, plan:installment_plans(category_id)').gte('due_month', startOfMonth).lte('due_month', endOfMonth)
+      supabase.from('installments').select('amount, plan:installment_plans(category_id)').gte('due_month', startOfMonth).lte('due_month', endOfMonth),
+      // Prev month data
+      supabase.from('budgets').select('*, category:categories(*)').eq('month', prevMonth).eq('year', prevYear),
+      supabase.from('transactions').select('amount, type, category_id').gte('transaction_date', prevStart).lte('transaction_date', prevEnd + 'T23:59:59'),
+      supabase.from('installments').select('amount, plan:installment_plans(category_id)').gte('due_month', prevStart).lte('due_month', prevEnd)
     ]);
     
     if (catsRes.data) setCategories(catsRes.data);
     
+    // Calculate CC projected for current month
+    const currentInsts = instsRes.data || [];
+    setScheduledCardPayments(currentInsts.reduce((sum, i) => sum + Number(i.amount), 0));
+
+    // Calculate Initial Balance from previous month
+    if (prevBudgetsRes.data) {
+      const pTxs = prevTxsRes.data || [];
+      const pInsts = prevInstsRes.data || [];
+      
+      const prevEnriched = prevBudgetsRes.data.map((b: any) => {
+        let spent = 0;
+        const isIncome = b.category?.type === 'income';
+        if (isIncome) {
+          spent = pTxs.filter(t => t.type === 'income' && t.category_id === b.category_id).reduce((s, t) => s + Number(t.amount), 0);
+        } else {
+          spent = pTxs.filter(t => t.type === 'expense' && (b.category_id ? t.category_id === b.category_id : true)).reduce((s, t) => s + Number(t.amount), 0);
+          spent += pInsts.filter(i => {
+              const planCatId = (i.plan as any)?.category_id || null;
+              return b.category_id ? planCatId === b.category_id : true;
+            }).reduce((s, i) => s + Number(i.amount), 0);
+        }
+        return { isIncome, spent };
+      });
+
+      const prevInc = prevEnriched.filter(e => e.isIncome).reduce((s, e) => s + e.spent, 0);
+      const prevExp = prevEnriched.filter(e => !e.isIncome).reduce((s, e) => s + e.spent, 0);
+      setInitialBalance(prevInc - prevExp);
+    } else {
+      setInitialBalance(0);
+    }
+
     if (budgetsRes.data) {
       const txs = txsRes.data || [];
-      const insts = instsRes.data || [];
+      const insts = currentInsts;
       
       const enrichedBudgets = budgetsRes.data.map((b: any) => {
         let dynamicSpent = 0;
@@ -93,26 +138,58 @@ export function Budgets() {
     loadData();
   }
 
+  async function handleCopyToNextMonth() {
+    const nextMonthDate = new Date(year, month, 1);
+    const nextM = nextMonthDate.getMonth() + 1;
+    const nextY = nextMonthDate.getFullYear();
+
+    if (!confirm(`¿Copiar el presupuesto actual a ${monthNames[nextM-1]} ${nextY}?`)) return;
+
+    // Fetch budgets for next month to avoid duplicates
+    const { data: existing } = await supabase.from('budgets').select('category_id').eq('month', nextM).eq('year', nextY);
+    const existingIds = new Set(existing?.map(e => e.category_id) || []);
+
+    const toCopy = budgets
+      .filter(b => !existingIds.has(b.category_id))
+      .map(b => ({
+        user_id: user!.id,
+        category_id: b.category_id,
+        amount: b.amount,
+        month: nextM,
+        year: nextY
+      }));
+
+    if (toCopy.length === 0) {
+      alert('Nada que copiar o el presupuesto ya existe en el mes siguiente.');
+      return;
+    }
+
+    const { error } = await supabase.from('budgets').insert(toCopy);
+    if (!error) {
+      alert('Presupuesto copiado correctamente.');
+    }
+  }
+
   async function handleSaveCategory(e: FormEvent) {
     e.preventDefault();
     const payload = {
       user_id: user!.id,
       name: categoryForm.name,
       icon: categoryForm.icon,
-      type: 'expense' as const,
+      type: categoryForm.type,
     };
 
     if (editingCategory) {
       const { error } = await supabase.from('categories').update(payload).eq('id', editingCategory.id);
       if (!error) {
         setEditingCategory(null);
-        setCategoryForm({ name: '', icon: '📦' });
+        setCategoryForm({ name: '', icon: '📦', type: 'expense' });
         loadData();
       }
     } else {
       const { error } = await supabase.from('categories').insert(payload);
       if (!error) {
-        setCategoryForm({ name: '', icon: '📦' });
+        setCategoryForm({ name: '', icon: '📦', type: 'expense' });
         loadData();
       }
     }
@@ -134,8 +211,8 @@ export function Budgets() {
   const totalIncomeActual = budgets.filter(b => b.category?.type === 'income').reduce((s, b) => s + Number(b.spent), 0);
   const totalExpenseActual = budgets.filter(b => b.category?.type !== 'income').reduce((s, b) => s + Number(b.spent), 0);
 
-  const projectedBalance = totalIncomeBudget - totalExpenseBudget;
-  const actualBalance = totalIncomeActual - totalExpenseActual;
+  const projectedBalance = initialBalance + totalIncomeBudget - totalExpenseBudget;
+  const actualBalance = initialBalance + totalIncomeActual - totalExpenseActual;
 
   const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -143,64 +220,68 @@ export function Budgets() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
+      <div className="page-header" style={{ marginBottom: 12, marginTop: -4, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="desktop-only">
           <h1 className="page-title">Presupuestos</h1>
           <p className="page-subtitle">{monthNames[month - 1]} {year}</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary" onClick={() => setShowCategoryManager(true)}>
-            <Settings size={18} /> Categorías
+        <div style={{ display: 'flex', gap: 8, flex: 1, justifyContent: 'flex-end', minWidth: 200 }}>
+          <button className="btn btn-secondary btn-sm" style={{ height: 38, padding: '0 12px', flex: 1, maxWidth: 140 }} onClick={() => setShowCategoryManager(true)}>
+            <Settings size={16} /> <span>Categorías</span>
           </button>
-          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-            <Plus size={18} /> Nuevo
+          <button className="btn btn-primary btn-sm" style={{ height: 38, padding: '0 12px', flex: 1, maxWidth: 140 }} onClick={() => setShowForm(true)}>
+            <Plus size={16} /> <span>Nuevo</span>
           </button>
         </div>
       </div>
 
-      {/* Month selector */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 20 }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => { if (month === 1) { setMonth(12); setYear(year - 1); } else setMonth(month - 1); }}>←</button>
-        <span style={{ flex: 1, textAlign: 'center', fontWeight: 600 }}>{monthNames[month - 1]} {year}</span>
-        <button className="btn btn-secondary btn-sm" onClick={() => { if (month === 12) { setMonth(1); setYear(year + 1); } else setMonth(month + 1); }}>→</button>
+      {/* Month selector - More compact for mobile */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginBottom: 16, background: 'var(--bg-card)', padding: '6px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+        <button className="btn btn-ghost" style={{ padding: 6, minHeight: 'auto' }} onClick={() => { if (month === 1) { setMonth(12); setYear(year - 1); } else setMonth(month - 1); }}>←</button>
+        <span style={{ fontSize: 14, fontWeight: 700, minWidth: 100, textAlign: 'center' }}>{monthNames[month - 1]} {year}</span>
+        <button className="btn btn-ghost" style={{ padding: 6, minHeight: 'auto' }} onClick={() => { if (month === 12) { setMonth(1); setYear(year + 1); } else setMonth(month + 1); }}>→</button>
       </div>
 
       {/* Summary */}
       {budgets.length > 0 && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Ingresos</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--success)' }}>{formatMoney(totalIncomeBudget)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Gastos</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)' }}>{formatMoney(totalExpenseBudget)}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Balance (Proy)</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: projectedBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)' }}>{formatMoney(projectedBalance)}</div>
-            </div>
+        <div className="card" style={{ marginBottom: 24, padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+             <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Saldo Inicial</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: initialBalance >= 0 ? 'var(--text-primary)' : 'var(--danger)' }}>{formatMoney(initialBalance)}</div>
+             </div>
+             <button className="btn btn-secondary btn-sm" onClick={handleCopyToNextMonth}>
+               <RefreshCw size={14} /> <span className="desktop-only">Copiar al próximo mes</span><span className="mobile-only">Copiar</span>
+             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16, opacity: 0.8 }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Recibido</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--success)' }}>{formatMoney(totalIncomeActual)}</div>
+          <div className="budget-summary-grid" style={{ display: 'grid', gap: 16, marginBottom: 20, borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Ingresos (+{formatMoney(initialBalance)})</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--success)', marginTop: 2 }}>{formatMoney(totalIncomeBudget + initialBalance)}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Gastos Presupuestados</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--danger)', marginTop: 2 }}>{formatMoney(totalExpenseBudget)}</div>
+              </div>
             </div>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Gastado</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--danger)' }}>{formatMoney(totalExpenseActual)}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Balance (Real)</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: actualBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)' }}>{formatMoney(actualBalance)}</div>
+            
+            <div style={{ padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Balance Proyectado</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: projectedBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)', marginTop: 2 }}>{formatMoney(projectedBalance)}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Balance Real</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: actualBalance >= 0 ? 'var(--text-primary)' : 'var(--danger)', marginTop: 2 }}>{formatMoney(actualBalance)}</div>
+              </div>
             </div>
           </div>
           
-          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>Ejecución Presupuestaria</span>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>Ejecución de Gastos</span>
               <span style={{ fontSize: 13, fontWeight: 700 }}>{Math.round((totalExpenseActual / totalExpenseBudget) * 100) || 0}%</span>
             </div>
             <div className="progress-bar" style={{ height: 8 }}>
@@ -253,12 +334,29 @@ export function Budgets() {
           )}
 
           {/* Expense Section */}
-          {budgets.some(b => b.category?.type !== 'income') && (
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, letterSpacing: 0.5 }}>Gastos Presupuestados</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {budgets.filter(b => b.category?.type !== 'income').map(budget => {
-                  const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
+          <div>
+            <h3 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, letterSpacing: 0.5 }}>Gastos Presupuestados</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Automated Credit Card Row */}
+              {scheduledCardPayments > 0 && (
+                <div className="card" style={{ borderLeft: '4px solid var(--warning)', background: 'rgba(245, 158, 11, 0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 22 }}>💳</span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>Cuotas de Tarjeta (Previsto)</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                          Total comprometido en cuotas para este mes
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: 16 }}>{formatMoney(scheduledCardPayments)}</div>
+                  </div>
+                </div>
+              )}
+
+              {budgets.filter(b => b.category?.type !== 'income').map(budget => {
+                const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
                   const colorClass = pct > 1 ? 'red' : pct > 0.8 ? 'yellow' : 'green';
                   return (
                     <div key={budget.id} className="card">
@@ -287,9 +385,8 @@ export function Budgets() {
                     </div>
                   );
                 })}
-              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -336,7 +433,7 @@ export function Budgets() {
             </div>
 
             <form onSubmit={handleSaveCategory} style={{ marginBottom: 24, padding: 16, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(60px, 80px) 1fr', gap: 12, marginBottom: 12 }}>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label">Ícono</label>
                   <input className="form-input" value={categoryForm.icon} onChange={e => setCategoryForm({ ...categoryForm, icon: e.target.value })} placeholder="📦" style={{ textAlign: 'center' }} />
@@ -346,9 +443,16 @@ export function Budgets() {
                   <input className="form-input" value={categoryForm.name} onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })} placeholder="Ej: Supermercado" required />
                 </div>
               </div>
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label className="form-label">Tipo</label>
+                <select className="form-select" value={categoryForm.type} onChange={e => setCategoryForm({ ...categoryForm, type: e.target.value as 'income' | 'expense' })}>
+                  <option value="expense">Gasto</option>
+                  <option value="income">Ingreso</option>
+                </select>
+              </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {editingCategory && (
-                  <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setEditingCategory(null); setCategoryForm({ name: '', icon: '📦' }); }}>Cancelar</button>
+                  <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setEditingCategory(null); setCategoryForm({ name: '', icon: '📦', type: 'expense' }); }}>Cancelar</button>
                 )}
                 <button type="submit" className="btn btn-primary" style={{ flex: 2 }}>{editingCategory ? 'Actualizar' : 'Agregar Categoría'}</button>
               </div>
@@ -362,7 +466,7 @@ export function Budgets() {
                     <span style={{ fontWeight: 500 }}>{c.name}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => { setEditingCategory(c); setCategoryForm({ name: c.name, icon: c.icon }); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                    <button onClick={() => { setEditingCategory(c); setCategoryForm({ name: c.name, icon: c.icon, type: (c.type as 'income' | 'expense') || 'expense' }); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
                       <Edit2 size={16} />
                     </button>
                     {!c.is_default && (
