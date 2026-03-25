@@ -451,7 +451,7 @@ body {
 
   .sidebar-logo h1 {
     font-size: 20px;
-    font-weight: 700;
+    font-weight: 600;
     background: linear-gradient(135deg, var(--primary-400), var(--blue-500));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -558,8 +558,8 @@ body {
 }
 
 .balance-card .amount {
-  font-size: 28px;
-  font-weight: 800;
+  font-size: 32px;
+  font-weight: 300;
   color: white;
   margin: 4px 0;
   letter-spacing: -1px;
@@ -716,7 +716,7 @@ body {
 
 .section-title {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -736,7 +736,7 @@ body {
 
 .page-title {
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.5px;
 }
@@ -779,7 +779,7 @@ body {
 
 .stat-card .stat-value {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text-primary);
 }
 
@@ -868,7 +868,7 @@ body {
 
 .transaction-desc {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -883,7 +883,7 @@ body {
 
 .transaction-amount {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -970,7 +970,7 @@ body {
 
 .account-balance {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 400;
   text-align: right;
 }
 
