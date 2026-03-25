@@ -56,7 +56,7 @@ export function Accounts() {
     if (editingId) {
       const { error } = await supabase.from('accounts').update({
         name: form.name,
-        account_type: form.account_type,
+        account_type: form.account_type === 'store_credit' ? 'digital_wallet' : form.account_type,
         institution: form.institution || null,
         currency: form.currency,
         icon: accountTypeIcons[form.account_type] || '🏦',
@@ -75,7 +75,7 @@ export function Accounts() {
       const { error } = await supabase.from('accounts').insert({
         user_id: user!.id,
         name: form.name,
-        account_type: form.account_type,
+        account_type: form.account_type === 'store_credit' ? 'digital_wallet' : form.account_type,
         institution: form.institution || null,
         currency: form.currency,
         initial_balance: balance,
@@ -100,7 +100,7 @@ export function Accounts() {
   function startEdit(account: Account) {
     setForm({
       name: account.name,
-      account_type: account.account_type,
+      account_type: account.icon === '🏪' ? 'store_credit' : account.account_type,
       institution: account.institution || '',
       currency: account.currency,
       initial_balance: account.initial_balance.toString(),
@@ -150,7 +150,7 @@ export function Accounts() {
                   </div>
                   <div className="account-info">
                     <div className="account-name">{account.name}</div>
-                    <div className="account-institution">{account.institution || accountTypeLabels[account.account_type]}</div>
+                    <div className="account-institution">{account.institution || accountTypeLabels[account.icon === '🏪' ? 'store_credit' : account.account_type]}</div>
                   </div>
                 </div>
                 <div className="account-balance" style={{ margin: 0, color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>

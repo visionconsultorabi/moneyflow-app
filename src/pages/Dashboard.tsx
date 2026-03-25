@@ -88,9 +88,9 @@ export function Dashboard() {
     }
   }
 
-  const bankAccounts = accounts.filter(a => a.account_type !== 'credit_card' && a.account_type !== 'store_credit');
+  const bankAccounts = accounts.filter(a => a.account_type !== 'credit_card' && a.icon !== '🏪');
   const creditCards = accounts.filter(a => a.account_type === 'credit_card');
-  const storeCredits = accounts.filter(a => a.account_type === 'store_credit');
+  const storeCredits = accounts.filter(a => a.icon === '🏪');
 
   // Calculate totals per currency
   const totalsByCurrency = bankAccounts.filter(a => a.include_in_total).reduce((acc, a) => {
