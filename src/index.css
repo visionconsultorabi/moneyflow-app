@@ -476,6 +476,11 @@ body {
     font-size: 14px;
     font-weight: 500;
     transition: all var(--transition-fast);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    outline: none;
   }
 
   .sidebar-link:hover {
