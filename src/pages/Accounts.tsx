@@ -157,12 +157,12 @@ export function Accounts() {
                   {formatMoney(Number(account.current_balance))}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 12, borderTop: '1px solid var(--border-light)', paddingTop: 8, justifyContent: 'flex-end' }}>
-                <button onClick={(e) => { e.stopPropagation(); startEdit(account); }} className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Edit2 size={13} /> Editar
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                <button onClick={(e) => { e.stopPropagation(); startEdit(account); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', opacity: 0.6 }}>
+                  <Edit2 size={13} />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); deleteAccount(account.id); }} className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 12, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <X size={13} /> Eliminar
+                <button onClick={(e) => { e.stopPropagation(); deleteAccount(account.id); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--danger)', opacity: 0.6 }}>
+                  <X size={13} />
                 </button>
               </div>
             </div>
