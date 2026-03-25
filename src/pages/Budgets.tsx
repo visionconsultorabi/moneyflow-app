@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Budget, Category } from '../types/database';
-import { Plus, X, PieChart } from 'lucide-react';
+import { Plus, X, PieChart, Settings, Edit2, Trash2 } from 'lucide-react';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -17,6 +17,9 @@ export function Budgets() {
   const [year, setYear] = useState(now.getFullYear());
 
   const [form, setForm] = useState({ category_id: '', amount: '' });
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryForm, setCategoryForm] = useState({ name: '', icon: '📦' });
 
   useEffect(() => { if (user) loadData(); }, [user, month, year]);
 
@@ -76,8 +79,44 @@ export function Budgets() {
   }
 
   async function deleteBudget(id: string) {
+    if (!confirm('¿Eliminar este presupuesto?')) return;
     await supabase.from('budgets').delete().eq('id', id);
     loadData();
+  }
+
+  async function handleSaveCategory(e: FormEvent) {
+    e.preventDefault();
+    const payload = {
+      user_id: user!.id,
+      name: categoryForm.name,
+      icon: categoryForm.icon,
+      type: 'expense' as const,
+    };
+
+    if (editingCategory) {
+      const { error } = await supabase.from('categories').update(payload).eq('id', editingCategory.id);
+      if (!error) {
+        setEditingCategory(null);
+        setCategoryForm({ name: '', icon: '📦' });
+        loadData();
+      }
+    } else {
+      const { error } = await supabase.from('categories').insert(payload);
+      if (!error) {
+        setCategoryForm({ name: '', icon: '📦' });
+        loadData();
+      }
+    }
+  }
+
+  async function deleteCategory(id: string) {
+    if (!confirm('¿Eliminar esta categoría? Podría afectar a las transacciones existentes.')) return;
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) {
+      alert('No se pudo eliminar la categoría. Probablemente esté en uso.');
+    } else {
+      loadData();
+    }
   }
 
   const totalBudget = budgets.reduce((s, b) => s + Number(b.amount), 0);
@@ -94,9 +133,14 @@ export function Budgets() {
           <h1 className="page-title">Presupuestos</h1>
           <p className="page-subtitle">{monthNames[month - 1]} {year}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-          <Plus size={18} /> Nuevo
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" onClick={() => setShowCategoryManager(true)}>
+            <Settings size={18} /> Categorías
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={18} /> Nuevo
+          </button>
+        </div>
       </div>
 
       {/* Month selector */}
@@ -206,6 +250,59 @@ export function Budgets() {
               </div>
               <button type="submit" className="btn btn-primary btn-block btn-lg">Crear Presupuesto</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Category Manager Modal */}
+      {showCategoryManager && (
+        <div className="modal-overlay" onClick={() => setShowCategoryManager(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-handle" />
+            <div className="modal-header">
+              <h2 className="modal-title">Gestionar Categorías</h2>
+              <button className="modal-close" onClick={() => setShowCategoryManager(false)}><X size={18} /></button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} style={{ marginBottom: 24, padding: 16, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 12, marginBottom: 12 }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Ícono</label>
+                  <input className="form-input" value={categoryForm.icon} onChange={e => setCategoryForm({ ...categoryForm, icon: e.target.value })} placeholder="📦" style={{ textAlign: 'center' }} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Nombre</label>
+                  <input className="form-input" value={categoryForm.name} onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })} placeholder="Ej: Supermercado" required />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {editingCategory && (
+                  <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setEditingCategory(null); setCategoryForm({ name: '', icon: '📦' }); }}>Cancelar</button>
+                )}
+                <button type="submit" className="btn btn-primary" style={{ flex: 2 }}>{editingCategory ? 'Actualizar' : 'Agregar Categoría'}</button>
+              </div>
+            </form>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {categories.map(c => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 20 }}>{c.icon}</span>
+                    <span style={{ fontWeight: 500 }}>{c.name}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setEditingCategory(c); setCategoryForm({ name: c.name, icon: c.icon }); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                      <Edit2 size={16} />
+                    </button>
+                    {!c.is_default && (
+                      <button onClick={() => deleteCategory(c.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--danger)' }}>
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
