@@ -26,9 +26,9 @@ export function CreditCards() {
   async function loadData() {
     setLoading(true);
     const [cardsRes, plansRes, banksRes] = await Promise.all([
-      supabase.from('accounts').select('*').eq('account_type', 'credit_card').eq('status', 'active').order('created_at'),
+      supabase.from('accounts').select('*').eq('account_type', 'credit_card').eq('status', 'active').order('name'),
       supabase.from('installment_plans').select('*, installments(*)').eq('status', 'active').order('created_at', { ascending: false }),
-      supabase.from('accounts').select('*').neq('account_type', 'credit_card').eq('status', 'active'),
+      supabase.from('accounts').select('*').neq('account_type', 'credit_card').eq('status', 'active').order('name'),
     ]);
     if (cardsRes.data) setCards(cardsRes.data);
     if (plansRes.data) setPlans(plansRes.data as any);

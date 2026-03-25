@@ -32,7 +32,7 @@ export function Dashboard() {
     const year = now.getFullYear();
 
     const [accountsRes, transactionsRes, installmentsRes, savingsRes] = await Promise.all([
-      supabase.from('accounts').select('*').eq('status', 'active').order('created_at'),
+      supabase.from('accounts').select('*').eq('status', 'active').order('name'),
       supabase.from('transactions').select('*, category:category_id(*), account:account_id(*)').order('transaction_date', { ascending: false }).limit(10),
       supabase.rpc('get_monthly_installments', { p_user_id: user!.id, p_month: month, p_year: year }),
       supabase.from('savings_goals').select('*').limit(3),

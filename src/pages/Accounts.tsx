@@ -42,7 +42,7 @@ export function Accounts() {
 
   async function loadAccounts() {
     setLoading(true);
-    const { data } = await supabase.from('accounts').select('*').neq('account_type', 'credit_card').order('created_at');
+    const { data } = await supabase.from('accounts').select('*').neq('account_type', 'credit_card').order('name');
     if (data) setAccounts(data);
     setLoading(false);
   }
