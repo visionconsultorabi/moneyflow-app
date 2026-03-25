@@ -142,7 +142,7 @@ export function Accounts() {
       ) : (
         <div className="accounts-grid">
           {accounts.map(account => (
-            <div key={account.id} className="account-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div key={account.id} className="account-card" style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div className="account-icon-wrapper" style={{ background: account.color + '22', margin: 0 }}>
@@ -157,12 +157,12 @@ export function Accounts() {
                   {formatMoney(Number(account.current_balance))}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                <button onClick={(e) => { e.stopPropagation(); startEdit(account); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', opacity: 0.6 }}>
-                  <Edit2 size={13} />
+              <div style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
+                <button onClick={(e) => { e.stopPropagation(); startEdit(account); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', opacity: 0.5 }}>
+                  <Edit2 size={12} />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); deleteAccount(account.id); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--danger)', opacity: 0.6 }}>
-                  <X size={13} />
+                <button onClick={(e) => { e.stopPropagation(); deleteAccount(account.id); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--danger)', opacity: 0.5 }}>
+                  <X size={12} />
                 </button>
               </div>
             </div>
