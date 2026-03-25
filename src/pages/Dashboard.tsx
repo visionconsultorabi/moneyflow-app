@@ -190,21 +190,13 @@ export function Dashboard() {
 
       {/* Balance Card Section */}
       <div className="balance-card" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div className="label">Balance Total</div>
-            {Object.entries(totalsByCurrency).map(([curr, amount]) => (
-              <div key={curr} className="amount" style={{ fontSize: Object.keys(totalsByCurrency).length > 1 ? 28 : 36 }}>
-                {showBalances ? formatMoney(amount, curr) : '****'}
-              </div>
-            ))}
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div className="label" style={{ opacity: 0.8 }}>Gasto este mes</div>
-            <div className="amount" style={{ fontSize: 24, color: 'rgba(255,255,255,0.9)' }}>
-              {showBalances ? formatMoney(totalInstallmentsThisMonth, primaryCurrency) : '****'}
+        <div>
+          <div className="label">Balance Total</div>
+          {Object.entries(totalsByCurrency).map(([curr, amount]) => (
+            <div key={curr} className="amount" style={{ fontSize: Object.keys(totalsByCurrency).length > 1 ? 28 : 36 }}>
+              {showBalances ? formatMoney(amount, curr) : '****'}
             </div>
-          </div>
+          ))}
         </div>
       </div>
 
