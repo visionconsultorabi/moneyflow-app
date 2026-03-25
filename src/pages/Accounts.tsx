@@ -142,8 +142,8 @@ export function Accounts() {
       ) : (
         <div className="accounts-grid">
           {accounts.map(account => (
-            <div key={account.id} className="account-card" style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <div key={account.id} className="account-card" style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', padding: '16px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div className="account-icon-wrapper" style={{ background: account.color + '22', margin: 0 }}>
                     {account.icon}
@@ -153,7 +153,7 @@ export function Accounts() {
                     <div className="account-institution">{account.institution || accountTypeLabels[account.icon === '🏪' ? 'store_credit' : account.account_type]}</div>
                   </div>
                 </div>
-                <div className="account-balance" style={{ margin: 0, color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                <div className="account-balance" style={{ margin: 0, marginTop: 2, color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                   {formatMoney(Number(account.current_balance))}
                 </div>
               </div>
