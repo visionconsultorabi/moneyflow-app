@@ -29,8 +29,8 @@ export function Budgets() {
 
     const [budgetsRes, catsRes, txsRes, instsRes] = await Promise.all([
       supabase.from('budgets').select('*, category:categories(*)').eq('month', month).eq('year', year),
-      supabase.from('categories').select('*').in('type', ['expense', 'both']).order('name'),
-      supabase.from('transactions').select('amount, category_id').eq('type', 'expense').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
+      supabase.from('categories').select('*').order('name'),
+      supabase.from('transactions').select('amount, type, category_id').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
       supabase.from('installments').select('amount, plan:installment_plans(category_id)').gte('due_month', startOfMonth).lte('due_month', endOfMonth)
     ]);
     
@@ -42,18 +42,27 @@ export function Budgets() {
       
       const enrichedBudgets = budgetsRes.data.map((b: any) => {
         let dynamicSpent = 0;
-        // Sum regular expenses
-        dynamicSpent += txs
-          .filter(t => b.category_id ? t.category_id === b.category_id : true)
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-          
-        // Sum installments
-        dynamicSpent += insts
-          .filter(i => {
-            const planCatId = (i.plan as any)?.category_id || null;
-            return b.category_id ? planCatId === b.category_id : true;
-          })
-          .reduce((sum, i) => sum + Number(i.amount), 0);
+        const isIncome = b.category?.type === 'income';
+
+        if (isIncome) {
+          // Sum income transactions for this category
+          dynamicSpent += txs
+            .filter(t => t.type === 'income' && t.category_id === b.category_id)
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+        } else {
+          // Sum expense transactions
+          dynamicSpent += txs
+            .filter(t => t.type === 'expense' && (b.category_id ? t.category_id === b.category_id : true))
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+            
+          // Sum installments
+          dynamicSpent += insts
+            .filter(i => {
+              const planCatId = (i.plan as any)?.category_id || null;
+              return b.category_id ? planCatId === b.category_id : true;
+            })
+            .reduce((sum, i) => sum + Number(i.amount), 0);
+        }
           
         return { ...b, spent: dynamicSpent };
       });
@@ -119,8 +128,14 @@ export function Budgets() {
     }
   }
 
-  const totalBudget = budgets.reduce((s, b) => s + Number(b.amount), 0);
-  const totalSpent = budgets.reduce((s, b) => s + Number(b.spent), 0);
+  const totalIncomeBudget = budgets.filter(b => b.category?.type === 'income').reduce((s, b) => s + Number(b.amount), 0);
+  const totalExpenseBudget = budgets.filter(b => b.category?.type !== 'income').reduce((s, b) => s + Number(b.amount), 0);
+  
+  const totalIncomeActual = budgets.filter(b => b.category?.type === 'income').reduce((s, b) => s + Number(b.spent), 0);
+  const totalExpenseActual = budgets.filter(b => b.category?.type !== 'income').reduce((s, b) => s + Number(b.spent), 0);
+
+  const projectedBalance = totalIncomeBudget - totalExpenseBudget;
+  const actualBalance = totalIncomeActual - totalExpenseActual;
 
   const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -153,26 +168,47 @@ export function Budgets() {
       {/* Summary */}
       {budgets.length > 0 && (
         <div className="card" style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Gastado</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: totalSpent > totalBudget ? 'var(--danger)' : 'var(--text-primary)' }}>{formatMoney(totalSpent)}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Ingresos</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--success)' }}>{formatMoney(totalIncomeBudget)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Gastos</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)' }}>{formatMoney(totalExpenseBudget)}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Presupuesto</div>
-              <div style={{ fontSize: 22, fontWeight: 800 }}>{formatMoney(totalBudget)}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Balance (Proy)</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: projectedBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)' }}>{formatMoney(projectedBalance)}</div>
             </div>
           </div>
-          <div className="progress-bar" style={{ height: 10 }}>
-            <div
-              className={`progress-bar-fill ${totalSpent / totalBudget > 1 ? 'red' : totalSpent / totalBudget > 0.8 ? 'yellow' : 'green'}`}
-              style={{ width: `${Math.min((totalSpent / totalBudget) * 100, 100)}%` }}
-            />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16, opacity: 0.8 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Recibido</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--success)' }}>{formatMoney(totalIncomeActual)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Gastado</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--danger)' }}>{formatMoney(totalExpenseActual)}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Balance (Real)</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: actualBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)' }}>{formatMoney(actualBalance)}</div>
+            </div>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8, textAlign: 'center' }}>
-            {totalBudget - totalSpent > 0
-              ? `Quedan ${formatMoney(totalBudget - totalSpent)} disponibles`
-              : `Excedido por ${formatMoney(totalSpent - totalBudget)}`}
+          
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>Ejecución Presupuestaria</span>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{Math.round((totalExpenseActual / totalExpenseBudget) * 100) || 0}%</span>
+            </div>
+            <div className="progress-bar" style={{ height: 8 }}>
+              <div
+                className={`progress-bar-fill ${totalExpenseActual / totalExpenseBudget > 1 ? 'red' : totalExpenseActual / totalExpenseBudget > 0.8 ? 'yellow' : 'green'}`}
+                style={{ width: `${Math.min((totalExpenseActual / totalExpenseBudget) * 100, 100)}%` }}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -188,37 +224,72 @@ export function Budgets() {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {budgets.map(budget => {
-            const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
-            const colorClass = pct > 1 ? 'red' : pct > 0.8 ? 'yellow' : 'green';
-            return (
-              <div key={budget.id} className="card">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 22 }}>{budget.category?.icon || '📦'}</span>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{budget.category?.name || 'General'}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                        {formatMoney(Number(budget.spent))} / {formatMoney(Number(budget.amount))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Income Section */}
+          {budgets.some(b => b.category?.type === 'income') && (
+            <div>
+              <h3 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, letterSpacing: 0.5 }}>Ingresos Proyectados</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {budgets.filter(b => b.category?.type === 'income').map(budget => (
+                  <div key={budget.id} className="card" style={{ borderLeft: '4px solid var(--success)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 22 }}>{budget.category?.icon || '💰'}</span>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{budget.category?.name}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            Recibido: {formatMoney(Number(budget.spent))} / Proyectado: {formatMoney(Number(budget.amount))}
+                          </div>
+                        </div>
                       </div>
+                      <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                        <X size={14} color="var(--text-muted)" />
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)' }}>
-                      {Math.round(pct * 100)}%
-                    </span>
-                    <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                      <X size={14} color="var(--text-muted)" />
-                    </button>
-                  </div>
-                </div>
-                <div className="progress-bar">
-                  <div className={`progress-bar-fill ${colorClass}`} style={{ width: `${Math.min(pct * 100, 100)}%` }} />
-                </div>
+                ))}
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {/* Expense Section */}
+          {budgets.some(b => b.category?.type !== 'income') && (
+            <div>
+              <h3 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, letterSpacing: 0.5 }}>Gastos Presupuestados</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {budgets.filter(b => b.category?.type !== 'income').map(budget => {
+                  const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
+                  const colorClass = pct > 1 ? 'red' : pct > 0.8 ? 'yellow' : 'green';
+                  return (
+                    <div key={budget.id} className="card">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 22 }}>{budget.category?.icon || '📦'}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>{budget.category?.name || 'General'}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                              {formatMoney(Number(budget.spent))} / {formatMoney(Number(budget.amount))}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)' }}>
+                            {Math.round(pct * 100)}%
+                          </span>
+                          <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                            <X size={14} color="var(--text-muted)" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="progress-bar">
+                        <div className={`progress-bar-fill ${colorClass}`} style={{ width: `${Math.min(pct * 100, 100)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
