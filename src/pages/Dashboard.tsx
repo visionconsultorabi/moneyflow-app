@@ -173,7 +173,7 @@ export function Dashboard() {
         <div>
           <div className="label">Balance Total</div>
           {Object.entries(totalsByCurrency).map(([curr, amount]) => (
-            <div key={curr} className="amount" style={{ fontSize: Object.keys(totalsByCurrency).length > 1 ? 28 : 36 }}>
+            <div key={curr} className="amount" style={{ fontSize: Object.keys(totalsByCurrency).length > 1 ? 24 : 30 }}>
               {showBalances ? formatMoney(amount, curr) : '****'}
             </div>
           ))}
