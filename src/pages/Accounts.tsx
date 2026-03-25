@@ -36,6 +36,7 @@ export function Accounts() {
     color: '#3B82F6',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => { if (user) loadAccounts(); }, [user]);
 
@@ -48,6 +49,8 @@ export function Accounts() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setLoading(true);
+    setErrorStatus(null);
     const balance = parseFloat(form.initial_balance) || 0;
     
     if (editingId) {
@@ -60,7 +63,9 @@ export function Accounts() {
         color: form.color,
       }).eq('id', editingId);
 
-      if (!error) {
+      if (error) {
+        setErrorStatus({ type: 'error', text: error.message });
+      } else {
         setEditingId(null);
         setShowForm(false);
         setForm({ name: '', account_type: 'bank', institution: '', currency: 'ARS', initial_balance: '', color: '#3B82F6' });
@@ -77,13 +82,19 @@ export function Accounts() {
         current_balance: balance,
         icon: accountTypeIcons[form.account_type] || '🏦',
         color: form.color,
+        status: 'active',
+        include_in_total: true
       });
-      if (!error) {
+      
+      if (error) {
+        setErrorStatus({ type: 'error', text: error.message });
+      } else {
         setShowForm(false);
         setForm({ name: '', account_type: 'bank', institution: '', currency: 'ARS', initial_balance: '', color: '#3B82F6' });
         loadAccounts();
       }
     }
+    setLoading(false);
   }
 
   function startEdit(account: Account) {
@@ -167,6 +178,16 @@ export function Accounts() {
               <button className="modal-close" onClick={() => { setShowForm(false); setEditingId(null); setForm({ name: '', account_type: 'bank', institution: '', currency: 'ARS', initial_balance: '', color: '#3B82F6' }); }}><X size={18} /></button>
             </div>
             <form onSubmit={handleSubmit}>
+              {errorStatus && (
+                <div style={{ 
+                  padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13,
+                  background: errorStatus.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: errorStatus.type === 'success' ? 'var(--success)' : 'var(--danger)',
+                  border: `1px solid ${errorStatus.type === 'success' ? 'var(--success)' : 'var(--danger)'}`
+                }}>
+                  {errorStatus.text}
+                </div>
+              )}
               <div className="form-group">
                 <label className="form-label">Nombre</label>
                 <input className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Ej: Cuenta Santander" required />
