@@ -73,6 +73,14 @@ export function Layout() {
           </NavLink>
         </nav>
         <div className="sidebar-footer">
+          <button onClick={togglePrivacyMode} className="sidebar-link" style={{ width: '100%', marginBottom: '4px' }}>
+            {privacyMode ? <EyeOff size={20} /> : <Eye size={20} />}
+            {privacyMode ? 'Mostrar Saldos' : 'Ocultar Saldos'}
+          </button>
+          <button onClick={toggleTheme} className="sidebar-link" style={{ width: '100%', marginBottom: '4px' }}>
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            {theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
+          </button>
           <button onClick={signOut} className="sidebar-link" style={{ width: '100%' }}>
             <LogOut size={20} />
             Cerrar Sesión
