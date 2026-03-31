@@ -200,6 +200,67 @@ export function Dashboard() {
         </div>
       </div>
 
+      {/* Accounts List */}
+      <div style={{ marginBottom: 24 }}>
+        <div className="section-header">
+          <h2 className="section-title">Mis Cuentas</h2>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/accounts')}>Administrar</button>
+        </div>
+        {bankAccounts.length === 0 ? (
+          <div className="empty-state">
+            <AlertTriangle />
+            <h3>Sin cuentas</h3>
+            <p>Agregá tu primera cuenta para empezar</p>
+            <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => navigate('/accounts')}>
+              <Plus size={18} /> Agregar Cuenta
+            </button>
+          </div>
+        ) : (
+          <div className="accounts-grid">
+            {bankAccounts.map(account => (
+              <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ cursor: 'pointer' }}>
+                <div className="account-icon-wrapper" style={{ background: account.color + '22' }}>
+                  {account.icon}
+                </div>
+                <div className="account-info">
+                  <div className="account-name">{account.name}</div>
+                  <div className="account-institution">{account.institution || account.account_type}</div>
+                </div>
+                <div className="account-balance" style={{ color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                  {showBalances ? formatMoney(Number(account.current_balance), account.currency) : '****'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Store Credit List */}
+      {storeCredits.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div className="section-header">
+            <h2 className="section-title">Saldos a Favor (Comercios)</h2>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/accounts')}>Ver todos</button>
+          </div>
+          <div className="accounts-grid">
+            {storeCredits.map(account => (
+              <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ cursor: 'pointer' }}>
+                <div className="account-icon-wrapper" style={{ background: account.color + '22' }}>
+                  {account.icon}
+                </div>
+                <div className="account-info">
+                  <div className="account-name">{account.name}</div>
+                  <div className="account-institution">Saldo a favor</div>
+                </div>
+                <div className="account-balance" style={{ color: 'var(--success)' }}>
+                  {showBalances ? formatMoney(Number(account.current_balance), account.currency) : '****'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Credit Cards Summary */}
       {creditCards.length > 0 && (
         <div style={{ marginBottom: 24 }}>
@@ -216,7 +277,7 @@ export function Dashboard() {
               const pct = limit ? Math.round((used / limit) * 100) : 0;
               const utilClass = pct > 80 ? 'high' : pct > 50 ? 'medium' : 'low';
               return (
-                <div key={card.id} className="card" onClick={() => navigate('/cards')} style={{ cursor: 'pointer' }}>
+                <div key={card.id} className="card" onClick={() => navigate(`/transactions?account=${card.id}`)} style={{ cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                     <div className="account-icon-wrapper" style={{ background: card.color + '22' }}>
                       <CreditCard size={22} color={card.color} />
@@ -240,31 +301,10 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Monthly Installments */}
-      {monthlyInstallments.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div className="section-header">
-            <h2 className="section-title">Cuotas del Mes</h2>
-          </div>
-          {monthlyInstallments.map(inst => (
-            <div key={inst.installment_id} className="transaction-item">
-              <div className="transaction-icon" style={{ background: 'rgba(139, 92, 246, 0.15)' }}>
-                💳
-              </div>
-              <div className="transaction-info">
-                <div className="transaction-desc">{inst.description || 'Cuota'}</div>
-                <div className="transaction-category">{inst.card_name} · Cuota {inst.installment_number}/{inst.total_installments}</div>
-              </div>
-              <div className="transaction-amount expense">{showBalances ? formatMoney(Number(inst.amount), primaryCurrency) : '****'}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Recent Transactions */}
-      <div>
+      <div style={{ marginBottom: 24 }}>
         <div className="section-header">
-          <h2 className="section-title">Últimas Transacciones</h2>
+          <h2 className="section-title">Últimos Movimientos</h2>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('/transactions')}>Ver todas</button>
         </div>
         {transactions.length === 0 ? (
@@ -301,44 +341,30 @@ export function Dashboard() {
         )}
       </div>
 
-      {/* Accounts List */}
-      <div style={{ marginTop: 24 }}>
-        <div className="section-header">
-          <h2 className="section-title">Mis Cuentas</h2>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/accounts')}>Administrar</button>
-        </div>
-        {bankAccounts.length === 0 ? (
-          <div className="empty-state">
-            <AlertTriangle />
-            <h3>Sin cuentas</h3>
-            <p>Agregá tu primera cuenta para empezar</p>
-            <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => navigate('/accounts')}>
-              <Plus size={18} /> Agregar Cuenta
-            </button>
+      {/* Monthly Installments */}
+      {monthlyInstallments.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div className="section-header">
+            <h2 className="section-title">Cuotas del Mes</h2>
           </div>
-        ) : (
-          <div className="accounts-grid">
-            {bankAccounts.map(account => (
-              <div key={account.id} className="account-card" onClick={() => navigate('/accounts')}>
-                <div className="account-icon-wrapper" style={{ background: account.color + '22' }}>
-                  {account.icon}
-                </div>
-                <div className="account-info">
-                  <div className="account-name">{account.name}</div>
-                  <div className="account-institution">{account.institution || account.account_type}</div>
-                </div>
-                <div className="account-balance" style={{ color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                  {showBalances ? formatMoney(Number(account.current_balance), account.currency) : '****'}
-                </div>
+          {monthlyInstallments.map(inst => (
+            <div key={inst.installment_id} className="transaction-item">
+              <div className="transaction-icon" style={{ background: 'rgba(139, 92, 246, 0.15)' }}>
+                💳
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <div className="transaction-info">
+                <div className="transaction-desc">{inst.description || 'Cuota'}</div>
+                <div className="transaction-category">{inst.card_name} · Cuota {inst.installment_number}/{inst.total_installments}</div>
+              </div>
+              <div className="transaction-amount expense">{showBalances ? formatMoney(Number(inst.amount), primaryCurrency) : '****'}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Savings Goals Summary */}
       {savingsGoals.length > 0 && (
-        <div style={{ marginTop: 24 }}>
+        <div style={{ marginBottom: 24 }}>
           <div className="section-header">
             <h2 className="section-title">Metas de Ahorro</h2>
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/savings')}>Ver todas</button>
@@ -361,32 +387,6 @@ export function Dashboard() {
                 </div>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {/* Store Credit List */}
-      {storeCredits.length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <div className="section-header">
-            <h2 className="section-title">Saldos a Favor (Comercios)</h2>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/accounts')}>Ver todos</button>
-          </div>
-          <div className="accounts-grid">
-            {storeCredits.map(account => (
-              <div key={account.id} className="account-card" onClick={() => navigate('/accounts')}>
-                <div className="account-icon-wrapper" style={{ background: account.color + '22' }}>
-                  {account.icon}
-                </div>
-                <div className="account-info">
-                  <div className="account-name">{account.name}</div>
-                  <div className="account-institution">Saldo a favor</div>
-                </div>
-                <div className="account-balance" style={{ color: 'var(--success)' }}>
-                  {showBalances ? formatMoney(Number(account.current_balance), account.currency) : '****'}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}

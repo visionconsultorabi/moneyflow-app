@@ -1,13 +1,15 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, InstallmentPlan } from '../types/database';
-import { Plus, X, CreditCard, Edit2 } from 'lucide-react';
+import { Plus, X, CreditCard, Edit2, ArrowRightLeft } from 'lucide-react';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
 export function CreditCards() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [cards, setCards] = useState<Account[]>([]);
   const [plans, setPlans] = useState<InstallmentPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -229,6 +231,9 @@ export function CreditCards() {
                   )}
 
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
+                    <button onClick={(e) => { e.stopPropagation(); navigate(`/transactions?account=${card.id}`); }} className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <ArrowRightLeft size={14} /> Movimientos
+                    </button>
                     <button onClick={(e) => { e.stopPropagation(); startEdit(card); }} className="btn btn-ghost btn-sm" style={{ padding: 4 }}>
                       <Edit2 size={16} />
                     </button>

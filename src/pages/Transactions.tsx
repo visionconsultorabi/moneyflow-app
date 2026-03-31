@@ -1,32 +1,54 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Transaction } from '../types/database';
-import { Plus, Search, ArrowRightLeft, Trash2 } from 'lucide-react';
+import { Plus, Search, ArrowRightLeft, Trash2, X } from 'lucide-react';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
 export function Transactions() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const accountFilter = searchParams.get('account');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [accountName, setAccountName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'expense' | 'income' | 'transfer'>('all');
   const [search, setSearch] = useState('');
 
-  useEffect(() => { if (user) loadTransactions(); }, [user]);
+  useEffect(() => { if (user) loadTransactions(); }, [user, accountFilter]);
 
   async function loadTransactions() {
     setLoading(true);
-    const { data } = await supabase
+
+    // Load account name if filtering by account
+    if (accountFilter) {
+      const { data: accData } = await supabase.from('accounts').select('name').eq('id', accountFilter).single();
+      if (accData) setAccountName(accData.name);
+    } else {
+      setAccountName('');
+    }
+
+    let query = supabase
       .from('transactions')
       .select('*, category:category_id(*), account:account_id(*)')
       .order('transaction_date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(100);
+      .order('created_at', { ascending: false });
+
+    if (accountFilter) {
+      query = query.eq('account_id', accountFilter);
+    }
+
+    query = query.limit(100);
+    const { data } = await query;
     if (data) setTransactions(data as any);
     setLoading(false);
+  }
+
+  function clearAccountFilter() {
+    setSearchParams({});
   }
 
   async function deleteTransaction(id: string) {
@@ -68,6 +90,24 @@ export function Transactions() {
         </button>
       </div>
 
+      {/* Account Filter Badge */}
+      {accountFilter && accountName && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          background: 'var(--primary-alpha)', color: 'var(--primary)',
+          padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+          marginBottom: 16
+        }}>
+          📋 Movimientos de: {accountName}
+          <button onClick={clearAccountFilter} style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 2,
+            display: 'flex', alignItems: 'center', color: 'var(--primary)'
+          }}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Search */}
       <div style={{ position: 'relative', marginBottom: 16 }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -93,7 +133,12 @@ export function Transactions() {
         <div className="empty-state">
           <ArrowRightLeft size={64} />
           <h3>Sin transacciones</h3>
-          <p>{search ? 'No se encontraron resultados' : 'Empezá registrando tu primer movimiento'}</p>
+          <p>{search || accountFilter ? 'No se encontraron resultados' : 'Empezá registrando tu primer movimiento'}</p>
+          {accountFilter && (
+            <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={clearAccountFilter}>
+              Ver todas las transacciones
+            </button>
+          )}
         </div>
       ) : (
         <div className="transaction-list">

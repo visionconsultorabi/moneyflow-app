@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account } from '../types/database';
@@ -24,6 +25,7 @@ const accountTypeIcons: Record<string, string> = {
 
 export function Accounts() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -142,7 +144,7 @@ export function Accounts() {
       ) : (
         <div className="accounts-grid">
           {accounts.map(account => (
-            <div key={account.id} className="account-card" style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', padding: '16px 18px' }}>
+            <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', padding: '16px 18px', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div className="account-icon-wrapper" style={{ background: account.color + '22', margin: 0 }}>
