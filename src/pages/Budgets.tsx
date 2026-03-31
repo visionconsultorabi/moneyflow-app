@@ -25,6 +25,10 @@ export function Budgets() {
   const [initialBalance, setInitialBalance] = useState(0);
   const [scheduledCardPayments, setScheduledCardPayments] = useState(0);
 
+  // Initial balance editing
+  const [editingInitialBalance, setEditingInitialBalance] = useState(false);
+  const [tempInitialBalance, setTempInitialBalance] = useState('');
+
   useEffect(() => { if (user) loadData(); }, [user, month, year]);
 
   async function loadData() {
@@ -39,7 +43,7 @@ export function Budgets() {
     const prevStart = new Date(prevYear, prevMonth - 1, 1).toISOString().split('T')[0];
     const prevEnd = new Date(prevYear, prevMonth, 0).toISOString().split('T')[0];
 
-    const [budgetsRes, catsRes, txsRes, instsRes, prevBudgetsRes, prevTxsRes, prevInstsRes] = await Promise.all([
+    const [budgetsRes, catsRes, txsRes, instsRes, prevBudgetsRes, prevTxsRes, prevInstsRes, mbRes, prevMbRes] = await Promise.all([
       supabase.from('budgets').select('*, category:categories(*)').eq('month', month).eq('year', year),
       supabase.from('categories').select('*').order('name'),
       supabase.from('transactions').select('amount, type, category_id').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
@@ -47,7 +51,10 @@ export function Budgets() {
       // Prev month data
       supabase.from('budgets').select('*, category:categories(*)').eq('month', prevMonth).eq('year', prevYear),
       supabase.from('transactions').select('amount, type, category_id').gte('transaction_date', prevStart).lte('transaction_date', prevEnd + 'T23:59:59'),
-      supabase.from('installments').select('amount, plan:installment_plans(category_id)').gte('due_month', prevStart).lte('due_month', prevEnd)
+      supabase.from('installments').select('amount, plan:installment_plans(category_id)').gte('due_month', prevStart).lte('due_month', prevEnd),
+      // Overrides
+      supabase.from('monthly_balances').select('balance').eq('month', month).eq('year', year).maybeSingle(),
+      supabase.from('monthly_balances').select('balance').eq('month', prevMonth).eq('year', prevYear).maybeSingle()
     ]);
     
     if (catsRes.data) setCategories(catsRes.data);
@@ -56,31 +63,39 @@ export function Budgets() {
     const currentInsts = instsRes.data || [];
     setScheduledCardPayments(currentInsts.reduce((sum, i) => sum + Number(i.amount), 0));
 
-    // Calculate Initial Balance from previous month
-    if (prevBudgetsRes.data) {
-      const pTxs = prevTxsRes.data || [];
-      const pInsts = prevInstsRes.data || [];
-      
-      const prevEnriched = prevBudgetsRes.data.map((b: any) => {
-        let spent = 0;
-        const isIncome = b.category?.type === 'income';
-        if (isIncome) {
-          spent = pTxs.filter(t => t.type === 'income' && t.category_id === b.category_id).reduce((s, t) => s + Number(t.amount), 0);
-        } else {
-          spent = pTxs.filter(t => t.type === 'expense' && (b.category_id ? t.category_id === b.category_id : true)).reduce((s, t) => s + Number(t.amount), 0);
-          spent += pInsts.filter(i => {
-              const planCatId = (i.plan as any)?.category_id || null;
-              return b.category_id ? planCatId === b.category_id : true;
-            }).reduce((s, i) => s + Number(i.amount), 0);
-        }
-        return { isIncome, spent };
-      });
-
-      const prevInc = prevEnriched.filter(e => e.isIncome).reduce((s, e) => s + e.spent, 0);
-      const prevExp = prevEnriched.filter(e => !e.isIncome).reduce((s, e) => s + e.spent, 0);
-      setInitialBalance(prevInc - prevExp);
+    // Determine Initial Balance
+    if (mbRes.data) {
+      // Manual override for current month exists
+      setInitialBalance(Number(mbRes.data.balance));
     } else {
-      setInitialBalance(0);
+      // Calculate from previous month
+      if (prevBudgetsRes.data) {
+        const pTxs = prevTxsRes.data || [];
+        const pInsts = prevInstsRes.data || [];
+        
+        const prevEnriched = prevBudgetsRes.data.map((b: any) => {
+          let spent = 0;
+          const isIncome = b.category?.type === 'income';
+          if (isIncome) {
+            spent = pTxs.filter(t => t.type === 'income' && t.category_id === b.category_id).reduce((s, t) => s + Number(t.amount), 0);
+          } else {
+            spent = pTxs.filter(t => t.type === 'expense' && (b.category_id ? t.category_id === b.category_id : true)).reduce((s, t) => s + Number(t.amount), 0);
+            spent += pInsts.filter(i => {
+                const planCatId = (i.plan as any)?.category_id || null;
+                return b.category_id ? planCatId === b.category_id : true;
+              }).reduce((s, i) => s + Number(i.amount), 0);
+          }
+          return { isIncome, spent };
+        });
+
+        const prevInc = prevEnriched.filter(e => e.isIncome).reduce((s, e) => s + e.spent, 0);
+        const prevExp = prevEnriched.filter(e => !e.isIncome).reduce((s, e) => s + e.spent, 0);
+        
+        const prevStartBalance = prevMbRes.data ? Number(prevMbRes.data.balance) : 0;
+        setInitialBalance(prevStartBalance + prevInc - prevExp);
+      } else {
+        setInitialBalance(0);
+      }
     }
 
     if (budgetsRes.data) {
@@ -137,6 +152,28 @@ export function Budgets() {
   async function deleteBudget(id: string) {
     if (!confirm('¿Eliminar este presupuesto?')) return;
     await supabase.from('budgets').delete().eq('id', id);
+    loadData();
+  }
+
+  async function handleUpdateInitialBalance() {
+    const newBalance = parseFloat(tempInitialBalance);
+    if (isNaN(newBalance)) return;
+    
+    // Check if it already exists to upsert manually, or just use insert with conflict resolution if unique constraint exists
+    const { data: existing } = await supabase.from('monthly_balances').select('id').eq('month', month).eq('year', year).maybeSingle();
+    
+    if (existing) {
+      await supabase.from('monthly_balances').update({ balance: newBalance }).eq('id', existing.id);
+    } else {
+      await supabase.from('monthly_balances').insert({
+        user_id: user!.id,
+        month,
+        year,
+        balance: newBalance
+      });
+    }
+    
+    setEditingInitialBalance(false);
     loadData();
   }
 
@@ -274,8 +311,32 @@ export function Budgets() {
         <div className="card" style={{ marginBottom: 24, padding: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
              <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Saldo Inicial</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: initialBalance >= 0 ? 'var(--text-primary)' : 'var(--danger)' }}>{formatMoney(initialBalance)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  Saldo Inicial
+                  {!editingInitialBalance && (
+                    <button onClick={() => { setTempInitialBalance(String(initialBalance)); setEditingInitialBalance(true); }} className="btn btn-ghost" style={{ padding: 2, minHeight: 'auto' }}>
+                      <Edit2 size={12} />
+                    </button>
+                  )}
+                </div>
+                {editingInitialBalance ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <input
+                      className="form-input"
+                      type="number"
+                      step="0.01"
+                      value={tempInitialBalance}
+                      onChange={e => setTempInitialBalance(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleUpdateInitialBalance(); if (e.key === 'Escape') setEditingInitialBalance(false); }}
+                      autoFocus
+                      style={{ width: 120, height: 32, fontSize: 14, padding: '4px 8px' }}
+                    />
+                    <button onClick={handleUpdateInitialBalance} className="btn btn-primary" style={{ padding: '4px 8px', minHeight: 'auto', fontSize: 13 }}>✓</button>
+                    <button onClick={() => setEditingInitialBalance(false)} className="btn btn-ghost" style={{ padding: '4px 8px', minHeight: 'auto', fontSize: 13 }}>✗</button>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 18, fontWeight: 800, color: initialBalance >= 0 ? 'var(--text-primary)' : 'var(--danger)' }}>{formatMoney(initialBalance)}</div>
+                )}
              </div>
              <button className="btn btn-secondary btn-sm" onClick={handleCopyToNextMonth}>
                <RefreshCw size={14} /> <span className="desktop-only">Copiar al próximo mes</span><span className="mobile-only">Copiar</span>
