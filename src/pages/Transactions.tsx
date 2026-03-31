@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import type { Transaction } from '../types/database';
-import { Plus, Search, ArrowRightLeft, Trash2, X } from 'lucide-react';
+import type { Transaction, Account, Category } from '../types/database';
+import { Plus, Search, ArrowRightLeft, Trash2, X, Edit2 } from 'lucide-react';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -18,7 +18,34 @@ export function Transactions() {
   const [filter, setFilter] = useState<'all' | 'expense' | 'income' | 'transfer'>('all');
   const [search, setSearch] = useState('');
 
-  useEffect(() => { if (user) loadTransactions(); }, [user, accountFilter]);
+  // Editing state
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    amount: '',
+    description: '',
+    transaction_date: '',
+    account_id: '',
+    category_id: '',
+  });
+
+  useEffect(() => { 
+    if (user) {
+      loadTransactions();
+      loadMetadata();
+    }
+  }, [user, accountFilter]);
+
+  async function loadMetadata() {
+    const [accsRes, catsRes] = await Promise.all([
+      supabase.from('accounts').select('*').eq('status', 'active').order('name'),
+      supabase.from('categories').select('*').order('name'),
+    ]);
+    if (accsRes.data) setAccounts(accsRes.data);
+    if (catsRes.data) setCategories(catsRes.data);
+  }
 
   async function loadTransactions() {
     setLoading(true);
@@ -51,6 +78,40 @@ export function Transactions() {
     setSearchParams({});
   }
 
+  function startEdit(tx: Transaction) {
+    setEditForm({
+      amount: tx.amount.toString(),
+      description: tx.description || '',
+      transaction_date: tx.transaction_date,
+      account_id: tx.account_id,
+      category_id: tx.category_id || '',
+    });
+    setEditingTx(tx);
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingTx) return;
+    setSavingEdit(true);
+
+    const { error } = await supabase.from('transactions').update({
+      amount: parseFloat(editForm.amount),
+      description: editForm.description,
+      transaction_date: editForm.transaction_date,
+      account_id: editForm.account_id,
+      category_id: editForm.category_id || null,
+    }).eq('id', editingTx.id);
+
+    setSavingEdit(false);
+    
+    if (error) {
+      alert('Error al guardar: ' + error.message);
+    } else {
+      setEditingTx(null);
+      loadTransactions();
+    }
+  }
+
   async function deleteTransaction(id: string) {
     if (!confirm('¿Eliminar esta transacción?')) return;
     await supabase.from('transactions').delete().eq('id', id);
@@ -76,7 +137,12 @@ export function Transactions() {
     groups[date].push(tx);
   });
 
-  if (loading) return <div className="spinner" />;
+  if (loading && transactions.length === 0) return <div className="spinner" />;
+
+  // Filter categories for the edit modal based on the transaction type
+  const modalCategories = categories.filter(c => 
+    editingTx ? (c.type === editingTx.type || c.type === 'both') : true
+  );
 
   return (
     <div>
@@ -156,6 +222,8 @@ export function Transactions() {
                     <div className="transaction-desc">{tx.description || tx.category?.name || 'Transacción'}</div>
                     <div className="transaction-category">
                       {tx.category?.name || tx.type} · {tx.account?.name || ''}
+                      {' · '}
+                      {new Date(tx.transaction_date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                       {tx.payment_method === 'credit' && ' · Crédito'}
                     </div>
                     {tx.is_installment_purchase && (
@@ -166,14 +234,102 @@ export function Transactions() {
                     <div className={`transaction-amount ${tx.type}`}>
                       {tx.type === 'income' ? '+' : '-'}{formatMoney(Number(tx.amount))}
                     </div>
-                    <button onClick={() => deleteTransaction(tx.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                      <Trash2 size={14} color="var(--text-muted)" />
-                    </button>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button onClick={() => startEdit(tx)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                        <Edit2 size={14} color="var(--text-muted)" />
+                      </button>
+                      <button onClick={() => deleteTransaction(tx.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                        <Trash2 size={14} color="var(--text-muted)" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingTx && (
+        <div className="modal-overlay" onClick={() => setEditingTx(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-handle" />
+            <div className="modal-header">
+              <h2 className="modal-title">Editar Transacción</h2>
+              <button className="modal-close" onClick={() => setEditingTx(null)}><X size={18} /></button>
+            </div>
+            
+            <form onSubmit={saveEdit}>
+              <div className="form-group">
+                <label className="form-label">Monto</label>
+                <input 
+                  className="form-input" 
+                  type="number" 
+                  step="0.01" 
+                  value={editForm.amount} 
+                  onChange={e => setEditForm({...editForm, amount: e.target.value})} 
+                  required 
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">Descripción</label>
+                <input 
+                  className="form-input" 
+                  type="text" 
+                  value={editForm.description} 
+                  onChange={e => setEditForm({...editForm, description: e.target.value})} 
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">Fecha</label>
+                <input 
+                  className="form-input" 
+                  type="date" 
+                  value={editForm.transaction_date} 
+                  onChange={e => setEditForm({...editForm, transaction_date: e.target.value})} 
+                  required 
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Cuenta</label>
+                <select 
+                  className="form-select" 
+                  value={editForm.account_id} 
+                  onChange={e => setEditForm({...editForm, account_id: e.target.value})} 
+                  required
+                >
+                  <option value="">Seleccionar cuenta</option>
+                  {accounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {editingTx.type !== 'transfer' && (
+                <div className="form-group">
+                  <label className="form-label">Categoría</label>
+                  <select 
+                    className="form-select" 
+                    value={editForm.category_id} 
+                    onChange={e => setEditForm({...editForm, category_id: e.target.value})}
+                  >
+                    <option value="">Sin categoría</option>
+                    {modalCategories.map(c => (
+                      <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={savingEdit}>
+                {savingEdit ? 'Guardando...' : 'Guardar Cambios'}
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </div>
