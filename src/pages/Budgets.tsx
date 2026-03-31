@@ -17,6 +17,8 @@ export function Budgets() {
   const [year, setYear] = useState(now.getFullYear());
 
   const [form, setForm] = useState({ category_id: '', amount: '' });
+  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [editingBudgetAmount, setEditingBudgetAmount] = useState('');
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryForm, setCategoryForm] = useState<{name: string, icon: string, type: 'income' | 'expense'}>({ name: '', icon: '📦', type: 'expense' });
@@ -136,6 +138,27 @@ export function Budgets() {
     if (!confirm('¿Eliminar este presupuesto?')) return;
     await supabase.from('budgets').delete().eq('id', id);
     loadData();
+  }
+
+  async function handleUpdateBudget(id: string) {
+    const newAmount = parseFloat(editingBudgetAmount);
+    if (isNaN(newAmount) || newAmount < 0) return;
+    const { error } = await supabase.from('budgets').update({ amount: newAmount }).eq('id', id);
+    if (!error) {
+      setEditingBudgetId(null);
+      setEditingBudgetAmount('');
+      loadData();
+    }
+  }
+
+  function startEditBudget(budget: Budget) {
+    setEditingBudgetId(budget.id);
+    setEditingBudgetAmount(String(budget.amount));
+  }
+
+  function cancelEditBudget() {
+    setEditingBudgetId(null);
+    setEditingBudgetAmount('');
   }
 
   async function handleCopyToNextMonth() {
@@ -318,14 +341,38 @@ export function Budgets() {
                         <span style={{ fontSize: 22 }}>{budget.category?.icon || '💰'}</span>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 14 }}>{budget.category?.name}</div>
-                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                            Recibido: {formatMoney(Number(budget.spent))} / Proyectado: {formatMoney(Number(budget.amount))}
-                          </div>
+                          {editingBudgetId === budget.id ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                              <input
+                                className="form-input"
+                                type="number"
+                                inputMode="numeric"
+                                value={editingBudgetAmount}
+                                onChange={e => setEditingBudgetAmount(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleUpdateBudget(budget.id); if (e.key === 'Escape') cancelEditBudget(); }}
+                                autoFocus
+                                style={{ width: 120, height: 30, fontSize: 13, padding: '2px 8px' }}
+                              />
+                              <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-primary" style={{ padding: '2px 8px', minHeight: 'auto', fontSize: 12 }}>✓</button>
+                              <button onClick={cancelEditBudget} className="btn btn-ghost" style={{ padding: '2px 6px', minHeight: 'auto', fontSize: 12 }}>✗</button>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                              Recibido: {formatMoney(Number(budget.spent))} / Proyectado: {formatMoney(Number(budget.amount))}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                        <X size={14} color="var(--text-muted)" />
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {editingBudgetId !== budget.id && (
+                          <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                            <Edit2 size={14} color="var(--text-muted)" />
+                          </button>
+                        )}
+                        <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                          <X size={14} color="var(--text-muted)" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -365,15 +412,37 @@ export function Budgets() {
                           <span style={{ fontSize: 22 }}>{budget.category?.icon || '📦'}</span>
                           <div>
                             <div style={{ fontWeight: 600, fontSize: 14 }}>{budget.category?.name || 'General'}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                              {formatMoney(Number(budget.spent))} / {formatMoney(Number(budget.amount))}
-                            </div>
+                            {editingBudgetId === budget.id ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                <input
+                                  className="form-input"
+                                  type="number"
+                                  inputMode="numeric"
+                                  value={editingBudgetAmount}
+                                  onChange={e => setEditingBudgetAmount(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') handleUpdateBudget(budget.id); if (e.key === 'Escape') cancelEditBudget(); }}
+                                  autoFocus
+                                  style={{ width: 120, height: 30, fontSize: 13, padding: '2px 8px' }}
+                                />
+                                <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-primary" style={{ padding: '2px 8px', minHeight: 'auto', fontSize: 12 }}>✓</button>
+                                <button onClick={cancelEditBudget} className="btn btn-ghost" style={{ padding: '2px 6px', minHeight: 'auto', fontSize: 12 }}>✗</button>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                {formatMoney(Number(budget.spent))} / {formatMoney(Number(budget.amount))}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontWeight: 700, fontSize: 14, color: pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)' }}>
                             {Math.round(pct * 100)}%
                           </span>
+                          {editingBudgetId !== budget.id && (
+                            <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                              <Edit2 size={14} color="var(--text-muted)" />
+                            </button>
+                          )}
                           <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
                             <X size={14} color="var(--text-muted)" />
                           </button>
