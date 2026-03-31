@@ -195,22 +195,26 @@ export function Budgets() {
 
   async function handleSaveCategory(e: FormEvent) {
     e.preventDefault();
-    const payload = {
-      user_id: user!.id,
-      name: categoryForm.name,
-      icon: categoryForm.icon,
-      type: categoryForm.type,
-    };
 
     if (editingCategory) {
-      const { error } = await supabase.from('categories').update(payload).eq('id', editingCategory.id);
+      const updatePayload = {
+        name: categoryForm.name,
+        icon: categoryForm.icon,
+        type: categoryForm.type,
+      };
+      const { error } = await supabase.from('categories').update(updatePayload).eq('id', editingCategory.id);
       if (!error) {
         setEditingCategory(null);
         setCategoryForm({ name: '', icon: '📦', type: 'expense' });
         loadData();
       }
     } else {
-      const { error } = await supabase.from('categories').insert(payload);
+      const { error } = await supabase.from('categories').insert({
+        user_id: user!.id,
+        name: categoryForm.name,
+        icon: categoryForm.icon,
+        type: categoryForm.type,
+      });
       if (!error) {
         setCategoryForm({ name: '', icon: '📦', type: 'expense' });
         loadData();
