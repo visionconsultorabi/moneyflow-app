@@ -80,16 +80,12 @@ export function Budgets() {
             spent = pTxs.filter(t => t.type === 'income' && t.category_id === b.category_id).reduce((s, t) => s + Number(t.amount), 0);
           } else {
             spent = pTxs.filter(t => t.type === 'expense' && (b.category_id ? t.category_id === b.category_id : true)).reduce((s, t) => s + Number(t.amount), 0);
-            spent += pInsts.filter(i => {
-                const planCatId = (i.plan as any)?.category_id || null;
-                return b.category_id ? planCatId === b.category_id : true;
-              }).reduce((s, i) => s + Number(i.amount), 0);
           }
           return { isIncome, spent };
         });
 
         const prevInc = prevEnriched.filter(e => e.isIncome).reduce((s, e) => s + e.spent, 0);
-        const prevExp = prevEnriched.filter(e => !e.isIncome).reduce((s, e) => s + e.spent, 0);
+        const prevExp = prevEnriched.filter(e => !e.isIncome).reduce((s, e) => s + e.spent, 0) + pInsts.reduce((s, i) => s + Number(i.amount), 0);
         
         const prevStartBalance = prevMbRes.data ? Number(prevMbRes.data.balance) : 0;
         setInitialBalance(prevStartBalance + prevInc - prevExp);
@@ -116,14 +112,6 @@ export function Budgets() {
           dynamicSpent += txs
             .filter(t => t.type === 'expense' && (b.category_id ? t.category_id === b.category_id : true))
             .reduce((sum, t) => sum + Number(t.amount), 0);
-            
-          // Sum installments
-          dynamicSpent += insts
-            .filter(i => {
-              const planCatId = (i.plan as any)?.category_id || null;
-              return b.category_id ? planCatId === b.category_id : true;
-            })
-            .reduce((sum, i) => sum + Number(i.amount), 0);
         }
           
         return { ...b, spent: dynamicSpent };
@@ -270,10 +258,12 @@ export function Budgets() {
   }
 
   const totalIncomeBudget = budgets.filter(b => b.category?.type === 'income').reduce((s, b) => s + Number(b.amount), 0);
-  const totalExpenseBudget = budgets.filter(b => b.category?.type !== 'income').reduce((s, b) => s + Number(b.amount), 0);
+  const baseExpenseBudget = budgets.filter(b => b.category?.type !== 'income').reduce((s, b) => s + Number(b.amount), 0);
+  const totalExpenseBudget = baseExpenseBudget + scheduledCardPayments;
   
   const totalIncomeActual = budgets.filter(b => b.category?.type === 'income').reduce((s, b) => s + Number(b.spent), 0);
-  const totalExpenseActual = budgets.filter(b => b.category?.type !== 'income').reduce((s, b) => s + Number(b.spent), 0);
+  const baseExpenseActual = budgets.filter(b => b.category?.type !== 'income').reduce((s, b) => s + Number(b.spent), 0);
+  const totalExpenseActual = baseExpenseActual + scheduledCardPayments;
 
   const projectedBalance = initialBalance + totalIncomeBudget - totalExpenseBudget;
   const actualBalance = initialBalance + totalIncomeActual - totalExpenseActual;
