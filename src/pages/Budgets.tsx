@@ -24,6 +24,7 @@ export function Budgets() {
   const [categoryForm, setCategoryForm] = useState<{name: string, icon: string, type: 'income' | 'expense'}>({ name: '', icon: '📦', type: 'expense' });
   const [initialBalance, setInitialBalance] = useState(0);
   const [scheduledCardPayments, setScheduledCardPayments] = useState(0);
+  const [monthInstallments, setMonthInstallments] = useState<any[]>([]);
 
   // Initial balance editing
   const [editingInitialBalance, setEditingInitialBalance] = useState(false);
@@ -47,7 +48,7 @@ export function Budgets() {
       supabase.from('budgets').select('*, category:categories(*)').eq('month', month).eq('year', year),
       supabase.from('categories').select('*').order('name'),
       supabase.from('transactions').select('amount, type, category_id').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
-      supabase.from('installments').select('amount, plan:installment_plans(category_id)').gte('due_month', startOfMonth).lte('due_month', endOfMonth),
+      supabase.from('installments').select('*, plan:installment_plans(*, credit_card:accounts(*))').gte('due_month', startOfMonth).lte('due_month', endOfMonth),
       // Prev month data
       supabase.from('budgets').select('*, category:categories(*)').eq('month', prevMonth).eq('year', prevYear),
       supabase.from('transactions').select('amount, type, category_id').gte('transaction_date', prevStart).lte('transaction_date', prevEnd + 'T23:59:59'),
@@ -62,6 +63,7 @@ export function Budgets() {
     // Calculate CC projected for current month
     const currentInsts = instsRes.data || [];
     setScheduledCardPayments(currentInsts.reduce((sum, i) => sum + Number(i.amount), 0));
+    setMonthInstallments(currentInsts);
 
     // Determine Initial Balance
     if (mbRes.data) {
@@ -438,24 +440,6 @@ export function Budgets() {
           <div>
             <h3 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, letterSpacing: 0.5 }}>Gastos Presupuestados</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Automated Credit Card Row */}
-              {scheduledCardPayments > 0 && (
-                <div className="card" style={{ borderLeft: '4px solid var(--warning)', background: 'rgba(245, 158, 11, 0.05)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 22 }}>💳</span>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>Cuotas de Tarjeta (Previsto)</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                          Total comprometido en cuotas para este mes
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ fontWeight: 800, fontSize: 16 }}>{formatMoney(scheduledCardPayments)}</div>
-                  </div>
-                </div>
-              )}
-
               {budgets.filter(b => b.category?.type !== 'income').map(budget => {
                 const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
                   const colorClass = pct > 1 ? 'red' : pct > 0.8 ? 'yellow' : 'green';
@@ -510,6 +494,31 @@ export function Budgets() {
                 })}
             </div>
           </div>
+
+          {/* Credit Card Installments Section */}
+          {monthInstallments.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, letterSpacing: 0.5 }}>Cuotas de Tarjeta de Crédito</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {monthInstallments.map((inst, idx) => (
+                  <div key={inst.id || idx} className="card" style={{ borderLeft: '4px solid var(--warning)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 22 }}>💳</span>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{inst.plan?.description || 'Compra en cuotas'}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            {inst.plan?.credit_card?.name || 'Tarjeta'} • Cuota {inst.installment_number} de {inst.plan?.installment_count}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ fontWeight: 800, fontSize: 16 }}>{formatMoney(Number(inst.amount))}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
