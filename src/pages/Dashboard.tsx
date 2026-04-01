@@ -15,6 +15,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [currentMonthTxs, setCurrentMonthTxs] = useState<Transaction[]>([]);
   const [monthlyInstallments, setMonthlyInstallments] = useState<MonthlyInstallment[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,9 +32,13 @@ export function Dashboard() {
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
 
-    const [accountsRes, transactionsRes, installmentsRes, savingsRes] = await Promise.all([
+    const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
+    const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
+
+    const [accountsRes, transactionsRes, currentMonthTxsRes, installmentsRes, savingsRes] = await Promise.all([
       supabase.from('accounts').select('*').eq('status', 'active').order('name'),
       supabase.from('transactions').select('*, category:category_id(*), account:account_id(*)').order('transaction_date', { ascending: false }).limit(10),
+      supabase.from('transactions').select('amount, type').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
       supabase.rpc('get_monthly_installments', { p_user_id: user!.id, p_month: month, p_year: year }),
       supabase.from('savings_goals').select('*').limit(3),
     ]);
@@ -42,6 +47,8 @@ export function Dashboard() {
     if (transactionsRes.data) setTransactions(transactionsRes.data as any);
     if (installmentsRes.data) setMonthlyInstallments(installmentsRes.data as any);
     if (savingsRes.data) setSavingsGoals(savingsRes.data);
+    
+    if (currentMonthTxsRes.data) setCurrentMonthTxs(currentMonthTxsRes.data as any);
     
     // Check recurring transactions
     await checkRecurringTransactions();
@@ -102,8 +109,8 @@ export function Dashboard() {
   // (Assuming installments are in primary currency ARS for simplicity in real-available calculation)
   const primaryCurrency = 'ARS';
 
-  const monthExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
-  const monthIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
+  const monthExpenses = currentMonthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
+  const monthIncome = currentMonthTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
 
   // Generate Alerts
   const todayDate = new Date().getDate();
