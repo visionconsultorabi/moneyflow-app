@@ -96,7 +96,6 @@ export function Budgets() {
 
     if (budgetsRes.data) {
       const txs = txsRes.data || [];
-      const insts = currentInsts;
       
       const enrichedBudgets = budgetsRes.data.map((b: any) => {
         let dynamicSpent = 0;
