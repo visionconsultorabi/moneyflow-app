@@ -247,10 +247,10 @@ export function NewTransaction() {
                 💵 Efectivo
               </button>
               <button type="button" className={`tab ${form.payment_method === 'debit' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'debit' })}>
-                🏦 Débito
+                Débito
               </button>
               <button type="button" className={`tab ${form.payment_method === 'credit' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'credit' })}>
-                💳 Crédito
+                Crédito
               </button>
             </div>
           </div>
@@ -265,11 +265,11 @@ export function NewTransaction() {
               {form.type === 'transfer' ? (
                 // For transfers, can include CC as source (for paying merchants in advance)
                 [...accounts, ...creditCards].map(a => (
-                  <option key={a.id} value={a.id}>{a.icon || (a.account_type === 'credit_card' ? '💳' : '🏦')} {a.name} ({formatMoney(Number(a.current_balance))})</option>
+                  <option key={a.id} value={a.id}>{a.name} ({formatMoney(Number(a.current_balance))})</option>
                 ))
               ) : (
                 accounts.map(a => (
-                  <option key={a.id} value={a.id}>{a.icon} {a.name} ({formatMoney(Number(a.current_balance), a.currency)})</option>
+                  <option key={a.id} value={a.id}>{a.name} ({formatMoney(Number(a.current_balance), a.currency)})</option>
                 ))
               )}
             </select>
@@ -283,7 +283,7 @@ export function NewTransaction() {
             <select className="form-select" value={form.to_account_id} onChange={e => setForm({ ...form, to_account_id: e.target.value })} required>
               <option value="">Seleccionar destino</option>
               {([...accounts, ...creditCards]).filter(a => a.id !== form.account_id).map(a => (
-                <option key={a.id} value={a.id}>{a.icon || (a.account_type === 'credit_card' ? '💳' : '🏦')} {a.name}</option>
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
           </div>
@@ -399,7 +399,7 @@ export function NewTransaction() {
             <select className="form-select" value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}>
               <option value="">Sin categoría</option>
               {filteredCategories.map(c => (
-                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>

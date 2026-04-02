@@ -215,11 +215,8 @@ export function Transactions() {
               </div>
               {txs.map(tx => (
                 <div key={tx.id} className="transaction-item">
-                  <div className="transaction-icon" style={{ background: tx.category?.color ? tx.category.color + '22' : 'var(--bg-elevated)' }}>
-                    {tx.category?.icon || (tx.type === 'income' ? '💰' : tx.type === 'transfer' ? '🔄' : '💸')}
-                  </div>
                   <div className="transaction-info">
-                    <div className="transaction-desc">{tx.description || tx.category?.name || 'Transacción'}</div>
+                    <div className="transaction-desc" style={{ fontWeight: 400 }}>{tx.description || tx.category?.name || 'Transacción'}</div>
                     <div className="transaction-category">
                       {tx.category?.name || tx.type} · {tx.account?.name || ''}
                       {' · '}
@@ -231,7 +228,7 @@ export function Transactions() {
                     )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                    <div className={`transaction-amount ${tx.type}`}>
+                    <div className={`transaction-amount ${tx.type}`} style={{ fontWeight: 500 }}>
                       {tx.type === 'income' ? '+' : '-'}{formatMoney(Number(tx.amount))}
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
@@ -304,7 +301,7 @@ export function Transactions() {
                 >
                   <option value="">Seleccionar cuenta</option>
                   {accounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                    <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
                 </select>
               </div>
@@ -319,7 +316,7 @@ export function Transactions() {
                   >
                     <option value="">Sin categoría</option>
                     {modalCategories.map(c => (
-                      <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>

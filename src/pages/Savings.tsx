@@ -87,18 +87,15 @@ export function Savings() {
               <div key={goal.id} className="card" style={{ padding: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ fontSize: 24, width: 48, height: 48, borderRadius: 'var(--radius-md)', background: goal.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {goal.icon}
-                    </div>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{goal.name}</h3>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>{goal.name}</h3>
                       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                         Meta: {formatMoney(Number(goal.target_amount))}
                       </div>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: goal.color }}>{pct}%</div>
+                    <div style={{ fontSize: 18, fontWeight: 600, color: goal.color }}>{pct}%</div>
                   </div>
                 </div>
 

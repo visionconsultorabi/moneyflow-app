@@ -88,17 +88,14 @@ export function Recurring() {
         <div className="transaction-list">
           {recurrings.map(rec => (
             <div key={rec.id} className="transaction-item">
-              <div className="transaction-icon" style={{ background: 'var(--primary-400)22' }}>
-                <RefreshCw size={20} color="var(--primary-400)" />
-              </div>
               <div className="transaction-info">
-                <div className="transaction-desc">{rec.description}</div>
+                <div className="transaction-desc" style={{ fontWeight: 400 }}>{rec.description}</div>
                 <div className="transaction-category">
                   {rec.frequency === 'monthly' ? 'Mensual' : 'Semanal'} · {rec.account?.name}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div className={`transaction-amount ${rec.type}`}>
+                <div className={`transaction-amount ${rec.type}`} style={{ fontWeight: 500 }}>
                   {formatMoney(Number(rec.amount))}
                 </div>
                 <button onClick={() => deleteRecurring(rec.id)} className="btn btn-ghost" style={{ padding: 4 }}>
@@ -139,7 +136,7 @@ export function Recurring() {
                 <label className="form-label">Categoría</label>
                 <select className="form-select" value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})}>
                   <option value="">Sin categoría</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div className="form-group">

@@ -337,23 +337,23 @@ export function Budgets() {
           <div className="budget-summary-grid" style={{ display: 'grid', gap: 16, marginBottom: 20, borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Ingresos (+{formatMoney(initialBalance)})</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--success)', marginTop: 2 }}>{formatMoney(totalIncomeBudget + initialBalance)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>Ingresos (+{formatMoney(initialBalance)})</div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--success)', marginTop: 2 }}>{formatMoney(totalIncomeBudget + initialBalance)}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Gastos Presupuestados</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--danger)', marginTop: 2 }}>{formatMoney(totalExpenseBudget)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>Gastos Presupuestados</div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--danger)', marginTop: 2 }}>{formatMoney(totalExpenseBudget)}</div>
               </div>
             </div>
             
             <div style={{ padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Balance Proyectado</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: projectedBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)', marginTop: 2 }}>{formatMoney(projectedBalance)}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Balance Proyectado</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: projectedBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)', marginTop: 2 }}>{formatMoney(projectedBalance)}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Balance Real</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: actualBalance >= 0 ? 'var(--text-primary)' : 'var(--danger)', marginTop: 2 }}>{formatMoney(actualBalance)}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Balance Real</div>
+                <div style={{ fontSize: 16, fontWeight: 500, color: actualBalance >= 0 ? 'var(--text-primary)' : 'var(--danger)', marginTop: 2 }}>{formatMoney(actualBalance)}</div>
               </div>
             </div>
           </div>
@@ -394,9 +394,8 @@ export function Budgets() {
                   <div key={budget.id} className="card" style={{ borderLeft: '4px solid var(--success)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 22 }}>{budget.category?.icon || '💰'}</span>
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>{budget.category?.name}</div>
+                          <div style={{ fontWeight: 500, fontSize: 14 }}>{budget.category?.name}</div>
                           {editingBudgetId === budget.id ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                               <input
@@ -447,9 +446,8 @@ export function Budgets() {
                     <div key={budget.id} className="card">
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 22 }}>{budget.category?.icon || '📦'}</span>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 14 }}>{budget.category?.name || 'General'}</div>
+                            <div style={{ fontWeight: 500, fontSize: 14 }}>{budget.category?.name || 'General'}</div>
                             {editingBudgetId === budget.id ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                                 <input
@@ -473,7 +471,7 @@ export function Budgets() {
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontWeight: 700, fontSize: 14, color: pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)' }}>
+                          <span style={{ fontWeight: 500, fontSize: 14, color: pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)' }}>
                             {Math.round(pct * 100)}%
                           </span>
                           {editingBudgetId !== budget.id && (
@@ -504,15 +502,14 @@ export function Budgets() {
                   <div key={inst.id || idx} className="card" style={{ borderLeft: '4px solid var(--warning)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 22 }}>💳</span>
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>{inst.plan?.description || 'Compra en cuotas'}</div>
+                          <div style={{ fontWeight: 500, fontSize: 14 }}>{inst.plan?.description || 'Compra en cuotas'}</div>
                           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                             {inst.plan?.credit_card?.name || 'Tarjeta'} • Cuota {inst.installment_number} de {inst.plan?.installment_count}
                           </div>
                         </div>
                       </div>
-                      <div style={{ fontWeight: 800, fontSize: 16 }}>{formatMoney(Number(inst.amount))}</div>
+                      <div style={{ fontWeight: 600, fontSize: 16 }}>{formatMoney(Number(inst.amount))}</div>
                     </div>
                   </div>
                 ))}
@@ -540,7 +537,7 @@ export function Budgets() {
                 <select className="form-select" value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}>
                   <option value="">Presupuesto General</option>
                   {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
@@ -594,11 +591,10 @@ export function Budgets() {
               {categories.map(c => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 20 }}>{c.icon}</span>
                     <span style={{ fontWeight: 500 }}>{c.name}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => { setEditingCategory(c); setCategoryForm({ name: c.name, icon: c.icon, type: (c.type as 'income' | 'expense') || 'expense' }); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                    <button onClick={() => { setEditingCategory(c); setCategoryForm({ name: c.name, icon: '', type: (c.type as 'income' | 'expense') || 'expense' }); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
                       <Edit2 size={16} />
                     </button>
                     {!c.is_default && (

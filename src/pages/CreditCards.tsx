@@ -70,7 +70,7 @@ export function CreditCards() {
         currency: 'ARS',
         initial_balance: limit,
         current_balance: limit,
-        icon: '💳',
+        icon: '',
         include_in_total: false,
       });
       if (!error) {
@@ -158,9 +158,8 @@ export function CreditCards() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{card.institution || 'Tarjeta'}</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>{card.name}</div>
+                      <div style={{ fontSize: 18, fontWeight: 500, marginTop: 4 }}>{card.name}</div>
                     </div>
-                    <div className="card-chip" />
                   </div>
                   {card.last_four_digits && (
                     <div className="card-number">•••• •••• •••• {card.last_four_digits}</div>
@@ -168,17 +167,16 @@ export function CreditCards() {
                   <div className="card-bottom">
                     <div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>DISPONIBLE</div>
-                      <div style={{ fontSize: 20, fontWeight: 700 }}>{formatMoney(available)}</div>
+                      <div style={{ fontSize: 20, fontWeight: 500 }}>{formatMoney(available)}</div>
                     </div>
-                    <div style={{ fontSize: 20, fontWeight: 700 }}>💳</div>
                   </div>
                 </div>
 
                 {/* Utilization Bar */}
                 <div className="card" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: -1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Utilización: {pct}%</span>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatMoney(used)} / {formatMoney(limit)}</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 400 }}>Utilización: {pct}%</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 400 }}>{formatMoney(used)} / {formatMoney(limit)}</span>
                   </div>
                   <div className="utilization-bar">
                     <div className={`utilization-fill ${utilClass}`} style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -188,8 +186,8 @@ export function CreditCards() {
                   <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
                     {close && (
                       <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Cierre</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, marginTop: 4 }}>Día {card.billing_close_day}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Cierre</div>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>Día {card.billing_close_day}</div>
                         <div style={{ fontSize: 12, color: close.diff <= 3 ? 'var(--warning)' : 'var(--text-muted)' }}>
                           {close.diff === 0 ? 'Hoy' : close.diff === 1 ? 'Mañana' : `En ${close.diff} días`}
                         </div>
@@ -197,8 +195,8 @@ export function CreditCards() {
                     )}
                     {due && (
                       <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Vencimiento</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, marginTop: 4 }}>Día {card.payment_due_day}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Vencimiento</div>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>Día {card.payment_due_day}</div>
                         <div style={{ fontSize: 12, color: due.diff <= 3 ? 'var(--danger)' : 'var(--text-muted)' }}>
                           {due.diff === 0 ? '¡Hoy!' : due.diff === 1 ? 'Mañana' : `En ${due.diff} días`}
                         </div>
@@ -215,8 +213,8 @@ export function CreditCards() {
                         return (
                           <div key={plan.id} style={{ padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', marginBottom: 8 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <div style={{ fontWeight: 600, fontSize: 14 }}>{plan.description || 'Compra en cuotas'}</div>
-                              <div style={{ fontWeight: 700, fontSize: 14 }}>{formatMoney(plan.installment_amount)}/mes</div>
+                              <div style={{ fontWeight: 500, fontSize: 14 }}>{plan.description || 'Compra en cuotas'}</div>
+                              <div style={{ fontWeight: 600, fontSize: 14 }}>{formatMoney(plan.installment_amount)}/mes</div>
                             </div>
                             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                               Cuota {paidCount + 1} de {plan.installment_count} · Total: {formatMoney(plan.total_amount)}

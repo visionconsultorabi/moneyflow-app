@@ -130,7 +130,7 @@ export function Reports() {
     if (active && payload && payload.length) {
       return (
         <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', padding: '8px 12px', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>{payload[0].name || payload[0].payload.month}</div>
+          <div style={{ fontWeight: 500, marginBottom: 4 }}>{payload[0].name || payload[0].payload.month}</div>
           {payload.map((p: any, i: number) => (
             <div key={i} style={{ color: p.fill || p.color }}>
               {p.dataKey === 'income' ? 'Ingresos: ' : p.dataKey === 'expense' ? 'Gastos: ' : ''}
@@ -184,7 +184,7 @@ export function Reports() {
           <h2 className="section-title" style={{ margin: 0 }}>Distribución de Gastos</h2>
           <div style={{ display: 'flex', gap: 4 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => { if (month === 1) { setMonth(12); setYear(year - 1); } else setMonth(month - 1); }}>←</button>
-            <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', margin: '0 8px' }}>
+            <span style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', margin: '0 8px' }}>
               {monthNames[month - 1]} {year}
             </span>
             <button className="btn btn-ghost btn-sm" onClick={() => { if (month === 12) { setMonth(1); setYear(year + 1); } else setMonth(month + 1); }}>→</button>
@@ -220,7 +220,7 @@ export function Reports() {
               </ResponsiveContainer>
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Total Gastado</div>
-                <div style={{ fontSize: 20, fontWeight: 800 }}>{formatMoney(totalExpense)}</div>
+                <div style={{ fontSize: 20, fontWeight: 600 }}>{formatMoney(totalExpense)}</div>
               </div>
             </div>
 
@@ -230,7 +230,7 @@ export function Reports() {
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 12, height: 12, borderRadius: '50%', background: d.color }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatMoney(d.value)}</div>
                   </div>
                 </div>

@@ -147,15 +147,12 @@ export function Accounts() {
             <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', padding: '16px 18px', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div className="account-icon-wrapper" style={{ background: account.color + '22', margin: 0 }}>
-                    {account.icon}
-                  </div>
                   <div className="account-info">
-                    <div className="account-name">{account.name}</div>
+                    <div className="account-name" style={{ fontWeight: 500 }}>{account.name}</div>
                     <div className="account-institution">{account.institution || accountTypeLabels[account.icon === '🏪' ? 'store_credit' : account.account_type]}</div>
                   </div>
                 </div>
-                <div className="account-balance" style={{ margin: 0, marginTop: 2, color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                <div className="account-balance" style={{ margin: 0, marginTop: 2, color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 500 }}>
                   {formatMoney(Number(account.current_balance))}
                 </div>
               </div>
