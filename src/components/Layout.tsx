@@ -96,13 +96,13 @@ export function Layout() {
         </div>
         <div className="mobile-actions">
           <button onClick={togglePrivacyMode} className="btn-icon">
-            {privacyMode ? <EyeOff size={20} /> : <Eye size={20} />}
+            {privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
           <button onClick={toggleTheme} className="btn-icon">
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <button onClick={() => setIsMenuOpen(true)} className="btn-icon">
-            <Menu size={20} />
+            <Menu size={16} />
           </button>
         </div>
       </header>

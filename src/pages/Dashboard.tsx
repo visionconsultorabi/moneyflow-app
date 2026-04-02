@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, Transaction, MonthlyInstallment, SavingsGoal } from '../types/database';
-import { Plus, ArrowRightLeft, CreditCard, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 function formatMoney(amount: number, currency = 'ARS') {
@@ -226,9 +226,6 @@ export function Dashboard() {
           <div className="accounts-grid">
             {bankAccounts.map(account => (
               <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ cursor: 'pointer' }}>
-                <div className="account-icon-wrapper" style={{ background: account.color + '22' }}>
-                  {account.icon}
-                </div>
                 <div className="account-info">
                   <div className="account-name">{account.name}</div>
                   <div className="account-institution">{account.institution || account.account_type}</div>
@@ -252,9 +249,6 @@ export function Dashboard() {
           <div className="accounts-grid">
             {storeCredits.map(account => (
               <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ cursor: 'pointer' }}>
-                <div className="account-icon-wrapper" style={{ background: account.color + '22' }}>
-                  {account.icon}
-                </div>
                 <div className="account-info">
                   <div className="account-name">{account.name}</div>
                   <div className="account-institution">Saldo a favor</div>
@@ -286,9 +280,6 @@ export function Dashboard() {
               return (
                 <div key={card.id} className="card" onClick={() => navigate(`/transactions?account=${card.id}`)} style={{ cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                    <div className="account-icon-wrapper" style={{ background: card.color + '22' }}>
-                      <CreditCard size={22} color={card.color} />
-                    </div>
                     <div>
                       <div className="account-name">{card.name}</div>
                       <div className="account-institution">{card.institution || 'Tarjeta'}</div>
@@ -327,9 +318,6 @@ export function Dashboard() {
           <div className="transaction-list">
             {transactions.map(tx => (
               <div key={tx.id} className="transaction-item">
-                <div className="transaction-icon" style={{ background: tx.category?.color ? tx.category.color + '22' : 'var(--bg-elevated)' }}>
-                  {tx.category?.icon || (tx.type === 'income' ? '💰' : tx.type === 'transfer' ? '🔄' : '💸')}
-                </div>
                 <div className="transaction-info">
                   <div className="transaction-desc">{tx.description || tx.category?.name || 'Transacción'}</div>
                   <div className="transaction-category">
@@ -356,9 +344,6 @@ export function Dashboard() {
           </div>
           {monthlyInstallments.map(inst => (
             <div key={inst.installment_id} className="transaction-item">
-              <div className="transaction-icon" style={{ background: 'rgba(139, 92, 246, 0.15)' }}>
-                💳
-              </div>
               <div className="transaction-info">
                 <div className="transaction-desc">{inst.description || 'Cuota'}</div>
                 <div className="transaction-category">{inst.card_name} · Cuota {inst.installment_number}/{inst.total_installments}</div>
@@ -382,8 +367,8 @@ export function Dashboard() {
               return (
                 <div key={goal.id} className="card" onClick={() => navigate('/savings')} style={{ cursor: 'pointer', padding: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontWeight: 600 }}>{goal.name}</span>
-                    <span style={{ color: goal.color, fontWeight: 700 }}>{pct}%</span>
+                    <span style={{ fontWeight: 500 }}>{goal.name}</span>
+                    <span style={{ color: goal.color, fontWeight: 600 }}>{pct}%</span>
                   </div>
                   <div className="utilization-bar" style={{ height: 6, marginBottom: 8 }}>
                     <div className="utilization-fill" style={{ width: `${pct}%`, background: goal.color }} />
