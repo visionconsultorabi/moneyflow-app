@@ -220,7 +220,7 @@ export function NewTransaction() {
         <div className="form-group" style={{ marginBottom: 24 }}>
           <label className="form-label">Monto</label>
             <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', fontSize: 24, fontWeight: 700, color: 'var(--text-muted)' }}>
+              <span style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', fontSize: 20, fontWeight: 500, color: 'var(--text-muted)' }}>
                 {new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(0).replace(/\d/g, '').trim()}
               </span>
               <input
@@ -233,7 +233,7 @@ export function NewTransaction() {
                 placeholder="0"
                 required
                 autoFocus
-                style={{ fontSize: 28, fontWeight: 800, padding: '16px 20px 16px 60px', textAlign: 'left' }}
+                style={{ fontSize: 20, fontWeight: 500, padding: '16px 20px 16px 45px', textAlign: 'left' }}
               />
             </div>
         </div>
