@@ -60,6 +60,7 @@ export interface Transaction {
   // Joined fields
   category?: Category;
   account?: Account;
+  to_account?: Account;
 }
 
 export interface InstallmentPlan {

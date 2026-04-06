@@ -29,6 +29,7 @@ export function Transactions() {
     transaction_date: '',
     account_id: '',
     category_id: '',
+    to_account_id: '',
   });
 
   useEffect(() => { 
@@ -60,12 +61,12 @@ export function Transactions() {
 
     let query = supabase
       .from('transactions')
-      .select('*, category:category_id(*), account:account_id(*)')
+      .select('*, category:category_id(*), account:account_id(*), to_account:to_account_id(*)')
       .order('transaction_date', { ascending: false })
       .order('created_at', { ascending: false });
 
     if (accountFilter) {
-      query = query.eq('account_id', accountFilter);
+      query = query.or(`account_id.eq.${accountFilter},to_account_id.eq.${accountFilter}`);
     }
 
     query = query.limit(100);
@@ -85,6 +86,7 @@ export function Transactions() {
       transaction_date: tx.transaction_date,
       account_id: tx.account_id,
       category_id: tx.category_id || '',
+      to_account_id: tx.to_account_id || '',
     });
     setEditingTx(tx);
   }
@@ -99,7 +101,8 @@ export function Transactions() {
       description: editForm.description,
       transaction_date: editForm.transaction_date,
       account_id: editForm.account_id,
-      category_id: editForm.category_id || null,
+      category_id: editingTx.type !== 'transfer' ? (editForm.category_id || null) : null,
+      to_account_id: editingTx.type === 'transfer' ? (editForm.to_account_id || null) : null,
     }).eq('id', editingTx.id);
 
     setSavingEdit(false);
@@ -216,9 +219,17 @@ export function Transactions() {
               {txs.map(tx => (
                 <div key={tx.id} className="transaction-item">
                   <div className="transaction-info">
-                    <div className="transaction-desc" style={{ fontWeight: 400 }}>{tx.description || tx.category?.name || 'Transacción'}</div>
+                    <div className="transaction-desc" style={{ fontWeight: 400 }}>{tx.description || tx.category?.name || (tx.type === 'transfer' ? 'Transferencia' : 'Transacción')}</div>
                     <div className="transaction-category">
-                      {tx.category?.name || tx.type} · {tx.account?.name || ''}
+                      {tx.type === 'transfer' ? (
+                        <>
+                          {tx.account?.name} → {tx.to_account?.name}
+                        </>
+                      ) : (
+                        <>
+                          {tx.category?.name || tx.type} · {tx.account?.name || ''}
+                        </>
+                      )}
                       {' · '}
                       {new Date(tx.transaction_date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                       {tx.payment_method === 'credit' && ' · Crédito'}
@@ -228,9 +239,17 @@ export function Transactions() {
                     )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                    <div className={`transaction-amount ${tx.type}`} style={{ fontWeight: 500 }}>
-                      {tx.type === 'income' ? '+' : '-'}{formatMoney(Number(tx.amount))}
-                    </div>
+                    {(() => {
+                      const isIncomeForCurrent = tx.type === 'income' || (tx.type === 'transfer' && tx.to_account_id === accountFilter);
+                      const amountType = isIncomeForCurrent ? 'income' : 'expense';
+                      const sign = isIncomeForCurrent ? '+' : '-';
+                      
+                      return (
+                        <div className={`transaction-amount ${amountType}`} style={{ fontWeight: 500 }}>
+                          {sign}{formatMoney(Number(tx.amount))}
+                        </div>
+                      );
+                    })()}
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => startEdit(tx)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
                         <Edit2 size={14} color="var(--text-muted)" />
@@ -306,7 +325,22 @@ export function Transactions() {
                 </select>
               </div>
 
-              {editingTx.type !== 'transfer' && (
+              {editingTx.type === 'transfer' ? (
+                <div className="form-group">
+                  <label className="form-label">Cuenta Destino</label>
+                  <select 
+                    className="form-select" 
+                    value={editForm.to_account_id} 
+                    onChange={e => setEditForm({...editForm, to_account_id: e.target.value})} 
+                    required
+                  >
+                    <option value="">Seleccionar destino</option>
+                    {accounts.filter(a => a.id !== editForm.account_id).map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
                 <div className="form-group">
                   <label className="form-label">Categoría</label>
                   <select 
