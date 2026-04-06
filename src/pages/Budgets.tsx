@@ -326,7 +326,7 @@ export function Budgets() {
                     <button onClick={() => setEditingInitialBalance(false)} className="btn btn-ghost" style={{ padding: '4px 8px', minHeight: 'auto', fontSize: 13 }}>✗</button>
                   </div>
                 ) : (
-                  <div style={{ fontSize: 18, fontWeight: 800, color: initialBalance >= 0 ? 'var(--text-primary)' : 'var(--danger)' }}>{formatMoney(initialBalance)}</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: initialBalance >= 0 ? 'var(--text-primary)' : 'var(--danger)' }}>{formatMoney(initialBalance)}</div>
                 )}
              </div>
              <button className="btn btn-secondary btn-sm" onClick={handleCopyToNextMonth}>
@@ -338,18 +338,18 @@ export function Budgets() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>Ingresos (+{formatMoney(initialBalance)})</div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--success)', marginTop: 2 }}>{formatMoney(totalIncomeBudget + initialBalance)}</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--success)', marginTop: 2 }}>{formatMoney(totalIncomeBudget + initialBalance)}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>Gastos Presupuestados</div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--danger)', marginTop: 2 }}>{formatMoney(totalExpenseBudget)}</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--danger)', marginTop: 2 }}>{formatMoney(totalExpenseBudget)}</div>
               </div>
             </div>
             
             <div style={{ padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Balance Proyectado</div>
-                <div style={{ fontSize: 18, fontWeight: 600, color: projectedBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)', marginTop: 2 }}>{formatMoney(projectedBalance)}</div>
+                <div style={{ fontSize: 17, fontWeight: 600, color: projectedBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)', marginTop: 2 }}>{formatMoney(projectedBalance)}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Balance Real</div>
@@ -509,7 +509,7 @@ export function Budgets() {
                           </div>
                         </div>
                       </div>
-                      <div style={{ fontWeight: 600, fontSize: 16 }}>{formatMoney(Number(inst.amount))}</div>
+                      <div style={{ fontWeight: 600, fontSize: 15 }}>{formatMoney(Number(inst.amount))}</div>
                     </div>
                   </div>
                 ))}

@@ -157,8 +157,8 @@ export function CreditCards() {
                 <div className="credit-card-visual" style={{ background: `linear-gradient(135deg, ${card.color}33, ${card.color}11, var(--bg-card))`, border: `1px solid ${card.color}44` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{card.institution || 'Tarjeta'}</div>
-                      <div style={{ fontSize: 18, fontWeight: 500, marginTop: 4 }}>{card.name}</div>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{card.institution || 'Tarjeta'}</div>
+                      <div style={{ fontSize: 17, fontWeight: 500, marginTop: 4 }}>{card.name}</div>
                     </div>
                   </div>
                   {card.last_four_digits && (
@@ -166,8 +166,8 @@ export function CreditCards() {
                   )}
                   <div className="card-bottom">
                     <div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>DISPONIBLE</div>
-                      <div style={{ fontSize: 20, fontWeight: 500 }}>{formatMoney(available)}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>DISPONIBLE</div>
+                      <div style={{ fontSize: 18, fontWeight: 500 }}>{formatMoney(available)}</div>
                     </div>
                   </div>
                 </div>
@@ -186,8 +186,8 @@ export function CreditCards() {
                   <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
                     {close && (
                       <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Cierre</div>
-                        <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>Día {card.billing_close_day}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Cierre</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>Día {card.billing_close_day}</div>
                         <div style={{ fontSize: 12, color: close.diff <= 3 ? 'var(--warning)' : 'var(--text-muted)' }}>
                           {close.diff === 0 ? 'Hoy' : close.diff === 1 ? 'Mañana' : `En ${close.diff} días`}
                         </div>
@@ -195,8 +195,8 @@ export function CreditCards() {
                     )}
                     {due && (
                       <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Vencimiento</div>
-                        <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>Día {card.payment_due_day}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Vencimiento</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>Día {card.payment_due_day}</div>
                         <div style={{ fontSize: 12, color: due.diff <= 3 ? 'var(--danger)' : 'var(--text-muted)' }}>
                           {due.diff === 0 ? '¡Hoy!' : due.diff === 1 ? 'Mañana' : `En ${due.diff} días`}
                         </div>

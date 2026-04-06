@@ -181,7 +181,7 @@ export function Accounts() {
             <form onSubmit={handleSubmit}>
               {errorStatus && (
                 <div style={{ 
-                  padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13,
+                  padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 12,
                   background: errorStatus.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                   color: errorStatus.type === 'success' ? 'var(--success)' : 'var(--danger)',
                   border: `1px solid ${errorStatus.type === 'success' ? 'var(--success)' : 'var(--danger)'}`

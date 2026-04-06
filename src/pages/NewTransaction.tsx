@@ -158,11 +158,6 @@ export function NewTransaction() {
         // 4. Link transaction to plan
         await supabase.from('installment_plans').update({ transaction_id: txData.id }).eq('id', planData.id);
 
-        // 5. Update credit card available credit
-        await supabase.from('accounts').update({
-          current_balance: Number(selectedCard!.current_balance) - amount,
-        }).eq('id', form.credit_card_id);
-
       } else {
         // Simple transaction (no installments)
         const { error } = await supabase.from('transactions').insert({
@@ -220,7 +215,7 @@ export function NewTransaction() {
         <div className="form-group" style={{ marginBottom: 24 }}>
           <label className="form-label">Monto</label>
             <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', fontSize: 20, fontWeight: 500, color: 'var(--text-muted)' }}>
+              <span style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', fontSize: 18, fontWeight: 500, color: 'var(--text-muted)' }}>
                 {new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(0).replace(/\d/g, '').trim()}
               </span>
               <input
@@ -233,7 +228,7 @@ export function NewTransaction() {
                 placeholder="0"
                 required
                 autoFocus
-                style={{ fontSize: 20, fontWeight: 500, padding: '16px 20px 16px 45px', textAlign: 'left' }}
+                style={{ fontSize: 18, fontWeight: 500, padding: '16px 20px 16px 45px', textAlign: 'left' }}
               />
             </div>
         </div>
@@ -357,7 +352,7 @@ export function NewTransaction() {
               <div className="installment-preview">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <CreditCard size={18} color="var(--primary-400)" />
-                  <span style={{ fontWeight: 700, fontSize: 15 }}>Detalle de Cuotas</span>
+                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>Detalle de Cuotas</span>
                 </div>
                 <div className="installment-preview-row">
                   <span className="label">Total de la compra</span>
@@ -365,7 +360,7 @@ export function NewTransaction() {
                 </div>
                 <div className="installment-preview-row">
                   <span className="label">{form.installment_count} cuotas de</span>
-                  <span className="value" style={{ color: 'var(--primary-400)', fontSize: 18 }}>{formatMoney(installmentAmount)}</span>
+                  <span className="value" style={{ color: 'var(--primary-400)', fontSize: 16 }}>{formatMoney(installmentAmount)}</span>
                 </div>
                 {financingCost > 0 && (
                   <div className="installment-preview-row">

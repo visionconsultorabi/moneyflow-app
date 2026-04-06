@@ -88,14 +88,14 @@ export function Savings() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>{goal.name}</h3>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 500 }}>{goal.name}</h3>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         Meta: {formatMoney(Number(goal.target_amount))}
                       </div>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 18, fontWeight: 600, color: goal.color }}>{pct}%</div>
+                    <div style={{ fontSize: 17, fontWeight: 600, color: goal.color }}>{pct}%</div>
                   </div>
                 </div>
 
@@ -103,7 +103,7 @@ export function Savings() {
                   <div className="utilization-fill" style={{ width: `${pct}%`, background: goal.color }} />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 20 }}>
                   <span>{formatMoney(Number(goal.current_amount))} ahorrados</span>
                   <span style={{ color: 'var(--text-muted)' }}>Faltan {formatMoney(Number(goal.target_amount) - Number(goal.current_amount))}</span>
                 </div>
