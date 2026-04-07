@@ -141,6 +141,20 @@ export interface RecurringTransaction {
   account?: Account;
 }
 
+export interface CreditCardStatement {
+  id: string;
+  credit_card_id: string;
+  statement_month: string;
+  close_date: string;
+  due_date: string;
+  total_amount: number;
+  minimum_payment: number;
+  status: 'open' | 'paid' | 'partial';
+  paid_amount: number;
+  paid_date: string | null;
+  created_at: string;
+}
+
 // Helper types
 export interface MonthlyInstallment {
   installment_id: string;

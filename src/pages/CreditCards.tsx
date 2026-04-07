@@ -2,8 +2,8 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import type { Account, InstallmentPlan } from '../types/database';
-import { Plus, X, CreditCard, Edit2, ArrowRightLeft } from 'lucide-react';
+import type { Account, InstallmentPlan, CreditCardStatement } from '../types/database';
+import { Plus, X, CreditCard, Edit2, ArrowRightLeft, CheckCircle } from 'lucide-react';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -12,8 +12,10 @@ export function CreditCards() {
   const navigate = useNavigate();
   const [cards, setCards] = useState<Account[]>([]);
   const [plans, setPlans] = useState<InstallmentPlan[]>([]);
+  const [statements, setStatements] = useState<CreditCardStatement[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showStatementForm, setShowStatementForm] = useState(false);
   const [selectedCard, setSelectedCard] = useState<Account | null>(null);
   const [bankAccounts, setBankAccounts] = useState<Account[]>([]);
   const [form, setForm] = useState({
@@ -21,20 +23,29 @@ export function CreditCards() {
     billing_close_day: '25', payment_due_day: '10', interest_rate: '',
     linked_account_id: '', color: '#8B5CF6',
   });
+  const [statementForm, setStatementForm] = useState({
+    statement_month: new Date().toISOString().slice(0, 7), // YYYY-MM
+    close_date: '',
+    due_date: '',
+    total_amount: '',
+    minimum_payment: '',
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => { if (user) loadData(); }, [user]);
 
   async function loadData() {
     setLoading(true);
-    const [cardsRes, plansRes, banksRes] = await Promise.all([
+    const [cardsRes, plansRes, banksRes, statementsRes] = await Promise.all([
       supabase.from('accounts').select('*').eq('account_type', 'credit_card').eq('status', 'active').order('name'),
       supabase.from('installment_plans').select('*, installments(*)').eq('status', 'active').order('created_at', { ascending: false }),
       supabase.from('accounts').select('*').neq('account_type', 'credit_card').eq('status', 'active').order('name'),
+      supabase.from('credit_card_statements').select('*').order('statement_month', { ascending: false }),
     ]);
     if (cardsRes.data) setCards(cardsRes.data);
     if (plansRes.data) setPlans(plansRes.data as any);
     if (banksRes.data) setBankAccounts(banksRes.data);
+    if (statementsRes.data) setStatements(statementsRes.data);
     setLoading(false);
   }
 
@@ -103,6 +114,98 @@ export function CreditCards() {
     loadData();
   }
 
+  async function handleSaveStatement(e: FormEvent) {
+    e.preventDefault();
+    if (!selectedCard) return;
+
+    const { error } = await supabase.from('credit_card_statements').insert({
+      credit_card_id: selectedCard.id,
+      statement_month: `${statementForm.statement_month}-01`,
+      close_date: statementForm.close_date,
+      due_date: statementForm.due_date,
+      total_amount: parseFloat(statementForm.total_amount) || 0,
+      minimum_payment: parseFloat(statementForm.minimum_payment) || 0,
+      status: 'open',
+    });
+
+    if (!error) {
+      setShowStatementForm(false);
+      setStatementForm({
+        statement_month: new Date().toISOString().slice(0, 7),
+        close_date: '',
+        due_date: '',
+        total_amount: '',
+        minimum_payment: '',
+      });
+      loadData();
+    }
+  }
+
+  async function handleRegisterPayment(statement: CreditCardStatement) {
+    if (!selectedCard) return;
+    const amount = prompt('Monto a pagar (ars):', statement.total_amount.toString());
+    if (!amount) return;
+    
+    const paidAmount = parseFloat(amount);
+    if (isNaN(paidAmount)) return;
+
+    const sourceAccountId = selectedCard.linked_account_id || bankAccounts[0]?.id;
+    if (!sourceAccountId) {
+      alert('Debes vincular una cuenta para realizar el pago.');
+      return;
+    }
+
+    setLoading(true);
+
+    // 1. Create transfer transaction
+    const { error: txError } = await supabase.from('transactions').insert({
+      user_id: user!.id,
+      account_id: sourceAccountId,
+      to_account_id: selectedCard.id,
+      type: 'transfer',
+      amount: paidAmount,
+      description: `Pago Tarjeta: ${selectedCard.name} (${statement.statement_month.slice(0, 7)})`,
+      transaction_date: new Date().toISOString().split('T')[0],
+      payment_method: 'transfer',
+    });
+
+    if (txError) {
+      alert('Error al registrar el pago');
+      setLoading(false);
+      return;
+    }
+
+    // 2. Update statement status
+    const newStatus = paidAmount >= statement.total_amount ? 'paid' : 'partial';
+    await supabase.from('credit_card_statements').update({
+      status: newStatus,
+      paid_amount: (statement.paid_amount || 0) + paidAmount,
+      paid_date: new Date().toISOString().split('T')[0],
+    }).eq('id', statement.id);
+
+    // 3. Mark installments as paid if full payment
+    if (newStatus === 'paid') {
+      const startOfMonth = statement.statement_month;
+      // Find installments for this card and this month
+      const { data: insts } = await supabase.from('installments')
+        .select('id, installment_plan_id')
+        .eq('due_month', startOfMonth)
+        .eq('status', 'pending');
+      
+      if (insts && insts.length > 0) {
+        // Filter those belonging to this card
+        const cardPlanIds = plans.filter(p => p.credit_card_id === selectedCard.id).map(p => p.id);
+        const targetInstIds = insts.filter(i => cardPlanIds.includes(i.installment_plan_id)).map(i => i.id);
+        
+        if (targetInstIds.length > 0) {
+          await supabase.from('installments').update({ status: 'paid', paid_date: new Date().toISOString().split('T')[0] }).in('id', targetInstIds);
+        }
+      }
+    }
+
+    loadData();
+  }
+
   if (loading) return <div className="spinner" />;
 
   function getCardUtilization(card: Account) {
@@ -147,8 +250,6 @@ export function CreditCards() {
           {cards.map(card => {
             const { limit, available, used, pct } = getCardUtilization(card);
             const utilClass = pct > 80 ? 'high' : pct > 50 ? 'medium' : 'low';
-            const close = card.billing_close_day ? getNextDate(card.billing_close_day) : null;
-            const due = card.payment_due_day ? getNextDate(card.payment_due_day) : null;
             const cardPlans = plans.filter(p => p.credit_card_id === card.id);
 
             return (
@@ -184,29 +285,83 @@ export function CreditCards() {
 
                   {/* Dates */}
                   <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
-                    {close && (
-                      <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Cierre</div>
-                        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>Día {card.billing_close_day}</div>
-                        <div style={{ fontSize: 12, color: close.diff <= 3 ? 'var(--warning)' : 'var(--text-muted)' }}>
-                          {close.diff === 0 ? 'Hoy' : close.diff === 1 ? 'Mañana' : `En ${close.diff} días`}
-                        </div>
-                      </div>
-                    )}
-                    {due && (
-                      <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Vencimiento</div>
-                        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>Día {card.payment_due_day}</div>
-                        <div style={{ fontSize: 12, color: due.diff <= 3 ? 'var(--danger)' : 'var(--text-muted)' }}>
-                          {due.diff === 0 ? '¡Hoy!' : due.diff === 1 ? 'Mañana' : `En ${due.diff} días`}
-                        </div>
-                      </div>
-                    )}
+                    {(() => {
+                      const latestStatement = statements.filter(s => s.credit_card_id === card.id).sort((a, b) => b.statement_month.localeCompare(a.statement_month))[0];
+                      
+                      const closeDate = latestStatement ? new Date(latestStatement.close_date) : (card.billing_close_day ? getNextDate(card.billing_close_day).date : null);
+                      const dueDate = latestStatement ? new Date(latestStatement.due_date) : (card.payment_due_day ? getNextDate(card.payment_due_day).date : null);
+                      
+                      const closeDiff = closeDate ? Math.ceil((closeDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+                      const dueDiff = dueDate ? Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+                      return (
+                        <>
+                          <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Cierre</div>
+                              {latestStatement && <div className={`badge ${latestStatement.status === 'paid' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: 8 }}>{latestStatement.status}</div>}
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 600 }}>
+                              {closeDate ? closeDate.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : 'N/A'}
+                            </div>
+                            {closeDiff !== null && (
+                              <div style={{ fontSize: 11, color: closeDiff <= 3 && closeDiff >= 0 ? 'var(--warning)' : 'var(--text-muted)' }}>
+                                {closeDiff < 0 ? 'Cerrado' : closeDiff === 0 ? 'Hoy' : closeDiff === 1 ? 'Mañana' : `En ${closeDiff} días`}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Vencimiento</div>
+                              {latestStatement && latestStatement.status === 'paid' && <CheckCircle size={10} color="var(--success)" />}
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 600 }}>
+                              {dueDate ? dueDate.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : 'N/A'}
+                            </div>
+                            {dueDiff !== null && (
+                              <div style={{ fontSize: 11, color: dueDiff <= 3 && dueDiff >= 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
+                                {latestStatement?.status === 'paid' ? 'Pagado' : (dueDiff < 0 ? 'Vencido' : dueDiff === 0 ? '¡Hoy!' : dueDiff === 1 ? 'Mañana' : `En ${dueDiff} días`)}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
-                  {/* Active Plans */}
-                  {selectedCard?.id === card.id && cardPlans.length > 0 && (
+                  {/* Statements & Active Plans */}
+                  {selectedCard?.id === card.id && (
                     <div style={{ marginTop: 16 }}>
+                      {/* Statements Section */}
+                      <div style={{ marginBottom: 20 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>Resúmenes Recientes</h4>
+                          <button onClick={(e) => { e.stopPropagation(); setShowStatementForm(true); }} className="btn btn-ghost btn-xs" style={{ color: 'var(--primary-500)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Plus size={14} /> Nuevo
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {statements.filter(s => s.credit_card_id === card.id).slice(0, 3).map(s => (
+                            <div key={s.id} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 500 }}>{new Date(s.statement_month).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}</div>
+                                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Vence: {new Date(s.due_date).toLocaleDateString('es-AR')}</div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{formatMoney(s.total_amount)}</div>
+                                {s.status !== 'paid' ? (
+                                  <button onClick={(e) => { e.stopPropagation(); handleRegisterPayment(s); }} className="btn btn-ghost btn-xs" style={{ padding: '2px 4px', fontSize: 9, color: 'var(--primary-500)' }}>
+                                    Pagar Total
+                                  </button>
+                                ) : (
+                                  <div style={{ fontSize: 9, color: 'var(--success)', fontWeight: 600 }}>PAGADO</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                       <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'var(--text-secondary)' }}>Planes de Cuotas Activos</h4>
                       {cardPlans.map(plan => {
                         const paidCount = plan.installments?.filter(i => i.status === 'paid').length || 0;
@@ -302,6 +457,44 @@ export function CreditCards() {
               <button type="submit" className="btn btn-primary btn-block btn-lg">
                 {editingId ? 'Guardar Cambios' : 'Crear Tarjeta'}
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Statement Modal */}
+      {showStatementForm && selectedCard && (
+        <div className="modal-overlay" onClick={() => setShowStatementForm(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-handle" />
+            <div className="modal-header">
+              <h2 className="modal-title">Nuevo Resumen - {selectedCard.name}</h2>
+              <button className="modal-close" onClick={() => setShowStatementForm(false)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSaveStatement}>
+              <div className="form-group">
+                <label className="form-label">Mes del Resumen</label>
+                <input className="form-input" type="month" value={statementForm.statement_month} onChange={e => setStatementForm({...statementForm, statement_month: e.target.value})} required />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label">Fecha de Cierre</label>
+                  <input className="form-input" type="date" value={statementForm.close_date} onChange={e => setStatementForm({...statementForm, close_date: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fecha de Vencimiento</label>
+                  <input className="form-input" type="date" value={statementForm.due_date} onChange={e => setStatementForm({...statementForm, due_date: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Monto Total</label>
+                <input className="form-input" type="number" step="0.01" value={statementForm.total_amount} onChange={e => setStatementForm({...statementForm, total_amount: e.target.value})} placeholder="0.00" required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Pago Mínimo</label>
+                <input className="form-input" type="number" step="0.01" value={statementForm.minimum_payment} onChange={e => setStatementForm({...statementForm, minimum_payment: e.target.value})} placeholder="0.00" />
+              </div>
+              <button type="submit" className="btn btn-primary btn-block btn-lg">Guardar Resumen</button>
             </form>
           </div>
         </div>

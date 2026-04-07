@@ -61,7 +61,7 @@ export function Transactions() {
 
     let query = supabase
       .from('transactions')
-      .select('*, category:category_id(*), account:account_id(*), to_account:to_account_id(*)')
+      .select('*, category:category_id(*), account:account_id(*), to_account:to_account_id(*), installment_plan:installment_plan_id(*, installments(*))')
       .order('transaction_date', { ascending: false })
       .order('created_at', { ascending: false });
 
@@ -234,8 +234,15 @@ export function Transactions() {
                       {new Date(tx.transaction_date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                       {tx.payment_method === 'credit' && ' · Crédito'}
                     </div>
-                    {tx.is_installment_purchase && (
-                      <div className="transaction-installment-badge">💳 Cuotas</div>
+                    {tx.is_installment_purchase && tx.installment_plan && (
+                      <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        <span className="badge badge-secondary" style={{ fontSize: 10, padding: '2px 6px' }}>
+                          Cuota {tx.installment_plan.installments?.find((i: any) => i.installment_number === 1)?.due_month.slice(0, 7) || 'N/A'} (1/{tx.installment_plan.installment_count})
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                          Total: {formatMoney(tx.installment_plan.total_amount)}
+                        </span>
+                      </div>
                     )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>

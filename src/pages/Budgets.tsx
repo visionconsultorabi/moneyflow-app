@@ -298,7 +298,7 @@ export function Budgets() {
       </div>
 
       {/* Summary */}
-      {budgets.length > 0 && (
+      {(budgets.length > 0 || scheduledCardPayments > 0) && (
         <div className="card" style={{ marginBottom: 24, padding: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
              <div>
@@ -365,8 +365,8 @@ export function Budgets() {
             </div>
             <div className="progress-bar" style={{ height: 8 }}>
               <div
-                className={`progress-bar-fill ${totalExpenseActual / totalExpenseBudget > 1 ? 'red' : totalExpenseActual / totalExpenseBudget > 0.8 ? 'yellow' : 'green'}`}
-                style={{ width: `${Math.min((totalExpenseActual / totalExpenseBudget) * 100, 100)}%` }}
+                className={`progress-bar-fill ${totalExpenseBudget > 0 && totalExpenseActual / totalExpenseBudget > 1 ? 'red' : totalExpenseBudget > 0 && totalExpenseActual / totalExpenseBudget > 0.8 ? 'yellow' : 'green'}`}
+                style={{ width: `${totalExpenseBudget > 0 ? Math.min((totalExpenseActual / totalExpenseBudget) * 100, 100) : 0}%` }}
               />
             </div>
           </div>
@@ -374,10 +374,10 @@ export function Budgets() {
       )}
 
       {/* Budget List */}
-      {budgets.length === 0 ? (
+      {budgets.length === 0 && scheduledCardPayments === 0 ? (
         <div className="empty-state">
           <PieChart size={64} />
-          <h3>Sin presupuestos</h3>
+          <h3>Sin presupuestos ni consumos</h3>
           <p>Creá presupuestos para controlar tus gastos por categoría</p>
           <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setShowForm(true)}>
             <Plus size={18} /> Crear Presupuesto
@@ -385,6 +385,26 @@ export function Budgets() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Credit Card Section (Automatic) */}
+          {scheduledCardPayments > 0 && (
+            <div>
+              <h3 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, letterSpacing: 0.5 }}>Pagos por Tarjeta (Cuotas)</h3>
+              <div className="card" style={{ borderLeft: '4px solid var(--primary-500)', padding: '12px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>Total en Cuotas</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--danger)' }}>{formatMoney(scheduledCardPayments)}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {monthInstallments.map(inst => (
+                    <div key={inst.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-secondary)', padding: '4px 0', borderTop: '1px dotted var(--border-subtle)' }}>
+                      <span>{inst.plan?.description} ({inst.installment_number}/{inst.plan?.installment_count})</span>
+                      <span style={{ fontWeight: 500 }}>{formatMoney(Number(inst.amount))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
           {/* Income Section */}
           {budgets.some(b => b.category?.type === 'income') && (
             <div>

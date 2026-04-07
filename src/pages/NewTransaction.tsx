@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import type { Account, Category } from '../types/database';
+import type { Account, Category, CreditCardStatement } from '../types/database';
 import { ArrowLeft, CreditCard } from 'lucide-react';
 
 const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
@@ -15,6 +15,7 @@ export function NewTransaction() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [creditCards, setCreditCards] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [statements, setStatements] = useState<CreditCardStatement[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -38,9 +39,10 @@ export function NewTransaction() {
 
   async function loadData() {
     setLoading(true);
-    const [accsRes, catsRes] = await Promise.all([
+    const [accsRes, catsRes, statementsRes] = await Promise.all([
       supabase.from('accounts').select('*').eq('status', 'active').order('created_at'),
       supabase.from('categories').select('*').order('name'),
+      supabase.from('credit_card_statements').select('*').order('statement_month', { ascending: false }),
     ]);
     if (accsRes.data) {
       const all = accsRes.data as Account[];
@@ -51,6 +53,7 @@ export function NewTransaction() {
       if (firstSource) setForm(f => ({ ...f, account_id: firstSource.id }));
     }
     if (catsRes.data) setCategories(catsRes.data);
+    if (statementsRes.data) setStatements(statementsRes.data);
     setLoading(false);
   }
 
@@ -81,17 +84,31 @@ export function NewTransaction() {
   }
 
   function getFirstInstallmentMonth() {
-    const now = new Date();
+    const txDate = new Date(form.transaction_date);
+    
+    // Check if we have a statement for this card
+    const cardStatements = statements.filter(s => s.credit_card_id === form.credit_card_id);
+    
+    // Find the statement that covers this transaction date or is the next one
+    const activeStatement = cardStatements
+      .sort((a, b) => a.close_date.localeCompare(b.close_date))
+      .find(s => new Date(s.close_date) >= txDate);
+
+    if (activeStatement) {
+      // Use the statement_month as the first installment month
+      const [y, m] = activeStatement.statement_month.split('-').map(Number);
+      return new Date(y, m - 1, 1);
+    }
+
+    // Fallback to legacy logic
     if (selectedCard?.billing_close_day) {
       const closeDay = selectedCard.billing_close_day;
-      const txDay = new Date(form.transaction_date).getDate();
+      const txDay = txDate.getDate();
       if (txDay > closeDay) {
-        // After close: first installment is month+2
-        return new Date(now.getFullYear(), now.getMonth() + 2, 1);
+        return new Date(txDate.getFullYear(), txDate.getMonth() + 2, 1);
       }
     }
-    // Before close: first installment is next month
-    return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return new Date(txDate.getFullYear(), txDate.getMonth() + 1, 1);
   }
 
   async function handleSubmit(e: FormEvent) {
