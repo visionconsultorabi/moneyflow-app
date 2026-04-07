@@ -61,6 +61,7 @@ export interface Transaction {
   category?: Category;
   account?: Account;
   to_account?: Account;
+  installment_plan?: InstallmentPlan;
 }
 
 export interface InstallmentPlan {
