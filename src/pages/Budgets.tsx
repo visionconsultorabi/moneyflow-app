@@ -416,86 +416,39 @@ export function Budgets() {
             <div>
               <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--success)', marginBottom: 10, letterSpacing: 0.5 }}>Ingresos Proyectados</h3>
               <div className="card" style={{ padding: '0 12px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border-subtle)', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 80px 80px 60px' }}>
                   <div>Categoría</div>
-                  <div style={{ textAlign: 'right', width: 80 }}>Real</div>
-                  <div style={{ textAlign: 'right', width: 80 }}>Proyectado</div>
+                  <div style={{ textAlign: 'right' }}>Real</div>
+                  <div style={{ textAlign: 'right' }}>Proyectado</div>
                   <div style={{ width: 60 }}></div>
                 </div>
                 {budgets.filter(b => b.category?.type === 'income').map((budget, idx, arr) => (
-                  <div key={budget.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: 12, padding: '10px 0', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>{budget.category?.icon || '💰'}</span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{budget.category?.name}</span>
+                  <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 80px 80px 60px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                    <div className="budget-row-main">
+                      <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{budget.category?.icon || '💰'}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{budget.category?.name}</span>
+                      </div>
+                      <div className="mobile-only" style={{ display: 'flex', gap: 4 }}>
+                         {editingBudgetId === budget.id ? (
+                          <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
+                        ) : (
+                          <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                            <Edit2 size={14} color="var(--text-muted)" />
+                          </button>
+                        )}
+                        <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                          <X size={14} color="var(--text-muted)" />
+                        </button>
+                      </div>
                     </div>
                     
-                    <div style={{ textAlign: 'right', width: 80, fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
-                      {formatMoney(Number(budget.spent))}
-                    </div>
-
-                    <div style={{ textAlign: 'right', width: 80 }}>
-                      {editingBudgetId === budget.id ? (
-                        <input
-                          className="form-input"
-                          type="number"
-                          inputMode="numeric"
-                          value={editingBudgetAmount}
-                          onChange={e => setEditingBudgetAmount(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleUpdateBudget(budget.id); if (e.key === 'Escape') cancelEditBudget(); }}
-                          autoFocus
-                          style={{ width: '100%', height: 28, fontSize: 12, padding: '2px 6px', textAlign: 'right' }}
-                        />
-                      ) : (
-                        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 2, width: 60 }}>
-                      {editingBudgetId === budget.id ? (
-                        <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
-                      ) : (
-                        <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                          <Edit2 size={14} color="var(--text-muted)" />
-                        </button>
-                      )}
-                      <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                        <X size={14} color="var(--text-muted)" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Expense Section */}
-          <div>
-            <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--danger)', marginBottom: 10, letterSpacing: 0.5 }}>Gastos Presupuestados</h3>
-            <div className="card" style={{ padding: '0 12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border-subtle)', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                <div>Categoría</div>
-                <div style={{ textAlign: 'right', width: 75 }}>Real</div>
-                <div style={{ textAlign: 'right', width: 75 }}>Presup.</div>
-                <div style={{ textAlign: 'center', width: 45 }}>%</div>
-                <div style={{ width: 55 }}></div>
-              </div>
-              {budgets.filter(b => b.category?.type !== 'income').map((budget, idx, arr) => {
-                const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
-                const statusColor = pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)';
-                
-                return (
-                  <div key={budget.id} style={{ borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)', padding: '8px 0' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 10, alignItems: 'center' }}>
-                      <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>{budget.category?.icon || '📦'}</span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{budget.category?.name || 'General'}</span>
-                      </div>
-                      
-                      <div style={{ textAlign: 'right', width: 75, fontSize: 13, fontWeight: 600, color: pct > 1 ? 'var(--danger)' : 'var(--text-primary)' }}>
+                    <div className="budget-row-details">
+                      <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
                         {formatMoney(Number(budget.spent))}
                       </div>
 
-                      <div style={{ textAlign: 'right', width: 75 }}>
+                      <div style={{ textAlign: 'right' }}>
                         {editingBudgetId === budget.id ? (
                           <input
                             className="form-input"
@@ -512,11 +465,88 @@ export function Budgets() {
                         )}
                       </div>
 
-                      <div style={{ textAlign: 'center', width: 45, fontSize: 12, fontWeight: 700, color: statusColor }}>
+                      <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                        {editingBudgetId === budget.id ? (
+                          <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
+                        ) : (
+                          <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                            <Edit2 size={14} color="var(--text-muted)" />
+                          </button>
+                        )}
+                        <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                          <X size={14} color="var(--text-muted)" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Expense Section */}
+          <div>
+            <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--danger)', marginBottom: 10, letterSpacing: 0.5 }}>Gastos Presupuestados</h3>
+            <div className="card" style={{ padding: '0 12px' }}>
+              <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px' }}>
+                <div>Categoría</div>
+                <div style={{ textAlign: 'right' }}>Real</div>
+                <div style={{ textAlign: 'right' }}>Presup.</div>
+                <div style={{ textAlign: 'center' }}>%</div>
+                <div style={{ width: 55 }}></div>
+              </div>
+              {budgets.filter(b => b.category?.type !== 'income').map((budget, idx, arr) => {
+                const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
+                const statusColor = pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)';
+                
+                return (
+                  <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                    <div className="budget-row-main">
+                      <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{budget.category?.icon || '📦'}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{budget.category?.name || 'General'}</span>
+                      </div>
+                      <div className="mobile-only" style={{ display: 'flex', gap: 4 }}>
+                         {editingBudgetId === budget.id ? (
+                          <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
+                        ) : (
+                          <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                            <Edit2 size={13} color="var(--text-muted)" />
+                          </button>
+                        )}
+                        <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                          <X size={13} color="var(--text-muted)" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="budget-row-details">
+                      <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: pct > 1 ? 'var(--danger)' : 'var(--text-primary)' }}>
+                        {formatMoney(Number(budget.spent))}
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        {editingBudgetId === budget.id ? (
+                          <input
+                            className="form-input"
+                            type="number"
+                            inputMode="numeric"
+                            value={editingBudgetAmount}
+                            onChange={e => setEditingBudgetAmount(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleUpdateBudget(budget.id); if (e.key === 'Escape') cancelEditBudget(); }}
+                            autoFocus
+                            style={{ width: '100%', height: 28, fontSize: 12, padding: '2px 6px', textAlign: 'right' }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
+                        )}
+                      </div>
+
+                      <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: statusColor }}>
                         {Math.round(pct * 100)}%
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 1, width: 55 }}>
+                      <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                         {editingBudgetId === budget.id ? (
                           <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
                         ) : (
@@ -529,8 +559,8 @@ export function Budgets() {
                         </button>
                       </div>
                     </div>
-                    {/* Tiny progress bar under the row */}
-                    <div style={{ height: 2, background: 'var(--bg-elevated)', borderRadius: 1, marginTop: 6, overflow: 'hidden' }}>
+                    {/* Tiny progress bar under the row - visible on both */}
+                    <div style={{ height: 2, background: 'var(--bg-elevated)', borderRadius: 1, marginTop: 4, gridColumn: '1 / -1', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${Math.min(pct * 100, 100)}%`, background: statusColor }} />
                     </div>
                   </div>
