@@ -1542,3 +1542,10 @@ body {
   }
 }
 
+
+@media (min-width: 768px) {
+  .budget-row-main, .budget-row-details {
+    display: contents;
+  }
+}
+
