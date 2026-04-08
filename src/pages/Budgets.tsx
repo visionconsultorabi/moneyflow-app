@@ -390,23 +390,49 @@ export function Budgets() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* Credit Card Section (Automatic Summary) */}
-          {scheduledCardPayments > 0 && (
+          {/* Credit Card Section (Grouped Details) */}
+          {monthInstallments.length > 0 && (
             <div>
               <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10, letterSpacing: 0.5 }}>Pagos Automáticos (Cuotas)</h3>
-              <div className="card" style={{ padding: '0 12px', borderLeft: '4px solid var(--primary-500)' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '12px 0', borderBottom: '1px solid var(--border-subtle)', alignItems: 'center' }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>Total en Cuotas del Mes</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--danger)' }}>{formatMoney(scheduledCardPayments)}</div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {monthInstallments.map((inst, idx) => (
-                    <div key={inst.id || idx} style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '8px 0', fontSize: 12, borderBottom: idx === monthInstallments.length - 1 ? 'none' : '1px dotted var(--border-subtle)', alignItems: 'center' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>{inst.plan?.description} <small style={{ opacity: 0.7 }}>({inst.installment_number}/{inst.plan?.installment_count})</small></span>
-                      <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{formatMoney(Number(inst.amount))}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {Object.entries(
+                  monthInstallments.reduce((acc: any, inst: any) => {
+                    const cardName = inst.plan?.credit_card?.name || 'Otras Cuotas';
+                    if (!acc[cardName]) acc[cardName] = { items: [], total: 0 };
+                    acc[cardName].items.push(inst);
+                    acc[cardName].total += Number(inst.amount);
+                    return acc;
+                  }, {})
+                ).map(([cardName, group]: [string, any]) => (
+                  <div key={cardName} className="card" style={{ padding: '0 12px', borderLeft: '4px solid var(--primary-500)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>{cardName}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)' }}>Total: {formatMoney(group.total)}</span>
                     </div>
-                  ))}
-                </div>
+                    
+                    <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 60px 80px' }}>
+                      <div>Descripción</div>
+                      <div style={{ textAlign: 'center' }}>Cuota</div>
+                      <div style={{ textAlign: 'right' }}>Monto</div>
+                    </div>
+
+                    {group.items.map((inst: any, idx: number) => (
+                      <div key={inst.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 60px 80px', borderBottom: idx === group.items.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                        <div className="budget-row-main">
+                          <div style={{ fontWeight: 500, fontSize: 13 }}>{inst.plan?.description || inst.plan?.name}</div>
+                        </div>
+                        <div className="budget-row-details">
+                          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)' }}>
+                            {inst.installment_number}/{inst.plan?.installment_count || inst.plan?.total_installments}
+                          </div>
+                          <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {formatMoney(Number(inst.amount))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -416,70 +442,84 @@ export function Budgets() {
             <div>
               <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--success)', marginBottom: 10, letterSpacing: 0.5 }}>Ingresos Proyectados</h3>
               <div className="card" style={{ padding: '0 12px' }}>
-                <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 80px 80px 60px' }}>
+                <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px' }}>
                   <div>Categoría</div>
                   <div style={{ textAlign: 'right' }}>Real</div>
                   <div style={{ textAlign: 'right' }}>Proyectado</div>
-                  <div style={{ width: 60 }}></div>
+                  <div style={{ textAlign: 'center' }}>%</div>
+                  <div style={{ width: 55 }}></div>
                 </div>
-                {budgets.filter(b => b.category?.type === 'income').map((budget, idx, arr) => (
-                  <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 80px 80px 60px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
-                    <div className="budget-row-main">
-                      <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>{budget.category?.icon || '💰'}</span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{budget.category?.name}</span>
-                      </div>
-                      <div className="mobile-only" style={{ display: 'flex', gap: 4 }}>
-                         {editingBudgetId === budget.id ? (
-                          <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
-                        ) : (
-                          <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                            <Edit2 size={14} color="var(--text-muted)" />
+                {budgets.filter(b => b.category?.type === 'income').map((budget, idx, arr) => {
+                  const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
+                  const statusColor = pct >= 1 ? 'var(--success)' : pct > 0.5 ? 'var(--warning)' : 'var(--text-muted)';
+                  
+                  return (
+                    <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                      <div className="budget-row-main">
+                        <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>{budget.category?.icon || '💰'}</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{budget.category?.name}</span>
+                        </div>
+                        <div className="mobile-only" style={{ display: 'flex', gap: 4 }}>
+                          {editingBudgetId === budget.id ? (
+                            <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
+                          ) : (
+                            <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                              <Edit2 size={13} color="var(--text-muted)" />
+                            </button>
+                          )}
+                          <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                            <X size={13} color="var(--text-muted)" />
                           </button>
-                        )}
-                        <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                          <X size={14} color="var(--text-muted)" />
-                        </button>
+                        </div>
+                      </div>
+                      
+                      <div className="budget-row-details">
+                        <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
+                          {formatMoney(Number(budget.spent))}
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          {editingBudgetId === budget.id ? (
+                            <input
+                              className="form-input"
+                              type="number"
+                              inputMode="numeric"
+                              value={editingBudgetAmount}
+                              onChange={e => setEditingBudgetAmount(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleUpdateBudget(budget.id); if (e.key === 'Escape') cancelEditBudget(); }}
+                              autoFocus
+                              style={{ width: '100%', height: 28, fontSize: 12, padding: '2px 6px', textAlign: 'right' }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
+                          )}
+                        </div>
+
+                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: statusColor }}>
+                          {Math.round(pct * 100)}%
+                        </div>
+
+                        <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                          {editingBudgetId === budget.id ? (
+                            <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
+                          ) : (
+                            <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                              <Edit2 size={13} color="var(--text-muted)" />
+                            </button>
+                          )}
+                          <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                            <X size={13} color="var(--text-muted)" />
+                          </button>
+                        </div>
+                      </div>
+                      {/* Tiny progress bar under the row */}
+                      <div style={{ height: 2, background: 'var(--bg-elevated)', borderRadius: 1, marginTop: 4, gridColumn: '1 / -1', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.min(pct * 100, 100)}%`, background: statusColor }} />
                       </div>
                     </div>
-                    
-                    <div className="budget-row-details">
-                      <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
-                        {formatMoney(Number(budget.spent))}
-                      </div>
-
-                      <div style={{ textAlign: 'right' }}>
-                        {editingBudgetId === budget.id ? (
-                          <input
-                            className="form-input"
-                            type="number"
-                            inputMode="numeric"
-                            value={editingBudgetAmount}
-                            onChange={e => setEditingBudgetAmount(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') handleUpdateBudget(budget.id); if (e.key === 'Escape') cancelEditBudget(); }}
-                            autoFocus
-                            style={{ width: '100%', height: 28, fontSize: 12, padding: '2px 6px', textAlign: 'right' }}
-                          />
-                        ) : (
-                          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
-                        )}
-                      </div>
-
-                      <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                        {editingBudgetId === budget.id ? (
-                          <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
-                        ) : (
-                          <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                            <Edit2 size={14} color="var(--text-muted)" />
-                          </button>
-                        )}
-                        <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                          <X size={14} color="var(--text-muted)" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
