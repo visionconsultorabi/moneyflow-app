@@ -84,7 +84,10 @@ export function Budgets() {
             spent = pTxs.filter(t => t.type === 'income' && t.category_id === b.category_id).reduce((s, t) => s + Number(t.amount), 0);
           } else {
             spent = pTxs.filter(t => t.type === 'expense' && !t.is_installment_purchase && (b.category_id ? t.category_id === b.category_id : true)).reduce((s, t) => s + Number(t.amount), 0);
-            const pCatInsts = pInsts.filter(i => i.plan?.category_id === b.category_id);
+            const pCatInsts = pInsts.filter(i => {
+              const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
+              return plan?.category_id === b.category_id;
+            });
             spent += pCatInsts.reduce((s, i) => s + Number(i.amount), 0);
           }
           return { isIncome, spent };
@@ -119,7 +122,10 @@ export function Budgets() {
             .reduce((sum, t) => sum + Number(t.amount), 0);
           
           // Add installments for this category
-          const categoryInsts = currentInsts.filter(i => i.plan?.category_id === b.category_id);
+          const categoryInsts = currentInsts.filter(i => {
+            const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
+            return plan?.category_id === b.category_id;
+          });
           dynamicSpent += categoryInsts.reduce((sum, i) => sum + Number(i.amount), 0);
         }
         return { ...b, spent: dynamicSpent };
