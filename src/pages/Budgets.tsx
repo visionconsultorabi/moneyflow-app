@@ -410,14 +410,14 @@ export function Budgets() {
                       <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)' }}>Total: {formatMoney(group.total)}</span>
                     </div>
                     
-                    <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 60px 80px' }}>
+                    <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 70px 100px' }}>
                       <div>Descripción</div>
                       <div style={{ textAlign: 'center' }}>Cuota</div>
                       <div style={{ textAlign: 'right' }}>Monto</div>
                     </div>
 
                     {group.items.map((inst: any, idx: number) => (
-                      <div key={inst.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 60px 80px', borderBottom: idx === group.items.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                      <div key={inst.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 70px 100px', borderBottom: idx === group.items.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
                         <div className="budget-row-main">
                           <div style={{ fontWeight: 500, fontSize: 13 }}>{inst.plan?.description || inst.plan?.name}</div>
                         </div>
@@ -442,7 +442,7 @@ export function Budgets() {
             <div>
               <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--success)', marginBottom: 10, letterSpacing: 0.5 }}>Ingresos Proyectados</h3>
               <div className="card" style={{ padding: '0 12px' }}>
-                <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px' }}>
+                <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 100px 100px 60px 70px' }}>
                   <div>Categoría</div>
                   <div style={{ textAlign: 'right' }}>Proyectado</div>
                   <div style={{ textAlign: 'right' }}>Real</div>
@@ -454,7 +454,7 @@ export function Budgets() {
                   const statusColor = pct >= 1 ? 'var(--success)' : pct > 0.5 ? 'var(--warning)' : 'var(--text-muted)';
                   
                   return (
-                    <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                    <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 100px 100px 60px 70px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
                       <div className="budget-row-main">
                         <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span>{budget.category?.icon || '💰'}</span>
@@ -528,7 +528,7 @@ export function Budgets() {
           <div>
             <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--danger)', marginBottom: 10, letterSpacing: 0.5 }}>Gastos Presupuestados</h3>
             <div className="card" style={{ padding: '0 12px' }}>
-              <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px' }}>
+              <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 100px 100px 60px 70px' }}>
                 <div>Categoría</div>
                 <div style={{ textAlign: 'right' }}>Presup.</div>
                 <div style={{ textAlign: 'right' }}>Real</div>
@@ -540,7 +540,7 @@ export function Budgets() {
                 const statusColor = pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)';
                 
                 return (
-                  <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                  <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 100px 100px 60px 70px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
                     <div className="budget-row-main">
                       <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>{budget.category?.icon || '📦'}</span>
