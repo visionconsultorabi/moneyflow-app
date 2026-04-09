@@ -25,6 +25,8 @@ export function Budgets() {
   const [initialBalance, setInitialBalance] = useState(0);
   const [scheduledCardPayments, setScheduledCardPayments] = useState(0);
   const [monthInstallments, setMonthInstallments] = useState<any[]>([]);
+  const [totalIncomeActual, setTotalIncomeActual] = useState(0);
+  const [totalExpenseActual, setTotalExpenseActual] = useState(0);
 
   // Initial balance editing
   const [editingInitialBalance, setEditingInitialBalance] = useState(false);
@@ -47,11 +49,11 @@ export function Budgets() {
     const [budgetsRes, catsRes, txsRes, instsRes, prevBudgetsRes, prevTxsRes, prevInstsRes, mbRes, prevMbRes] = await Promise.all([
       supabase.from('budgets').select('*, category:categories(*)').eq('month', month).eq('year', year),
       supabase.from('categories').select('*').order('name'),
-      supabase.from('transactions').select('amount, type, category_id').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
+      supabase.from('transactions').select('amount, type, category_id, is_installment_purchase').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
       supabase.from('installments').select('*, plan:installment_plans(*, credit_card:accounts(*))').gte('due_month', startOfMonth).lte('due_month', endOfMonth),
       // Prev month data
       supabase.from('budgets').select('*, category:categories(*)').eq('month', prevMonth).eq('year', prevYear),
-      supabase.from('transactions').select('amount, type, category_id').gte('transaction_date', prevStart).lte('transaction_date', prevEnd + 'T23:59:59'),
+      supabase.from('transactions').select('amount, type, category_id, is_installment_purchase').gte('transaction_date', prevStart).lte('transaction_date', prevEnd + 'T23:59:59'),
       supabase.from('installments').select('amount, plan:installment_plans(category_id)').gte('due_month', prevStart).lte('due_month', prevEnd),
       // Overrides
       supabase.from('monthly_balances').select('balance').eq('month', month).eq('year', year).maybeSingle(),
@@ -81,7 +83,9 @@ export function Budgets() {
           if (isIncome) {
             spent = pTxs.filter(t => t.type === 'income' && t.category_id === b.category_id).reduce((s, t) => s + Number(t.amount), 0);
           } else {
-            spent = pTxs.filter(t => t.type === 'expense' && (b.category_id ? t.category_id === b.category_id : true)).reduce((s, t) => s + Number(t.amount), 0);
+            spent = pTxs.filter(t => t.type === 'expense' && !t.is_installment_purchase && (b.category_id ? t.category_id === b.category_id : true)).reduce((s, t) => s + Number(t.amount), 0);
+            const pCatInsts = pInsts.filter(i => i.plan?.category_id === b.category_id);
+            spent += pCatInsts.reduce((s, i) => s + Number(i.amount), 0);
           }
           return { isIncome, spent };
         });
@@ -109,10 +113,14 @@ export function Budgets() {
             .filter(t => t.type === 'income' && t.category_id === b.category_id)
             .reduce((sum, t) => sum + Number(t.amount), 0);
         } else {
-          // Sum expense transactions
+          // Sum expense transactions (excluding master installment purchases)
           dynamicSpent += txs
-            .filter(t => t.type === 'expense' && (b.category_id ? t.category_id === b.category_id : true))
+            .filter(t => t.type === 'expense' && !t.is_installment_purchase && (b.category_id ? t.category_id === b.category_id : true))
             .reduce((sum, t) => sum + Number(t.amount), 0);
+          
+          // Add installments for this category
+          const categoryInsts = currentInsts.filter(i => i.plan?.category_id === b.category_id);
+          dynamicSpent += categoryInsts.reduce((sum, i) => sum + Number(i.amount), 0);
         }
         return { ...b, spent: dynamicSpent };
       });
@@ -123,6 +131,18 @@ export function Budgets() {
         return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
       });
       setBudgets(sortedBudgets);
+
+      // Calculate global actual totals for the summary (including unbudgeted items)
+      const incomeActualTotal = txs
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      
+      const expenseActualTotal = txs
+        .filter(t => t.type === 'expense' && !t.is_installment_purchase)
+        .reduce((sum, t) => sum + Number(t.amount), 0) + currentInsts.reduce((sum, i) => sum + Number(i.amount), 0);
+      
+      setTotalIncomeActual(incomeActualTotal);
+      setTotalExpenseActual(expenseActualTotal);
     }
     setLoading(false);
   }
@@ -267,9 +287,12 @@ export function Budgets() {
   const baseExpenseBudget = budgets.filter(b => b.category?.type !== 'income').reduce((s, b) => s + Number(b.amount), 0);
   const totalExpenseBudget = baseExpenseBudget + scheduledCardPayments;
   
+  // Totals are now handled by state calculated in loadData
+  /*
   const totalIncomeActual = budgets.filter(b => b.category?.type === 'income').reduce((s, b) => s + Number(b.spent), 0);
   const baseExpenseActual = budgets.filter(b => b.category?.type !== 'income').reduce((s, b) => s + Number(b.spent), 0);
   const totalExpenseActual = baseExpenseActual + scheduledCardPayments;
+  */
 
   const projectedBalance = initialBalance + totalIncomeBudget - totalExpenseBudget;
   const actualBalance = initialBalance + totalIncomeActual - totalExpenseActual;

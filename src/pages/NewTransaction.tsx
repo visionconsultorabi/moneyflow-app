@@ -119,7 +119,7 @@ export function NewTransaction() {
     try {
       const accountId = isCreditCard ? form.credit_card_id : form.account_id;
 
-      if (isCreditCard && form.installment_count > 1) {
+      if (isCreditCard) {
         // Create installment purchase
         const firstMonth = getFirstInstallmentMonth();
 
