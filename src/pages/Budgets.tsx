@@ -444,8 +444,8 @@ export function Budgets() {
               <div className="card" style={{ padding: '0 12px' }}>
                 <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px' }}>
                   <div>Categoría</div>
-                  <div style={{ textAlign: 'right' }}>Real</div>
                   <div style={{ textAlign: 'right' }}>Proyectado</div>
+                  <div style={{ textAlign: 'right' }}>Real</div>
                   <div style={{ textAlign: 'center' }}>%</div>
                   <div style={{ width: 55 }}></div>
                 </div>
@@ -475,10 +475,6 @@ export function Budgets() {
                       </div>
                       
                       <div className="budget-row-details">
-                        <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
-                          {formatMoney(Number(budget.spent))}
-                        </div>
-
                         <div style={{ textAlign: 'right' }}>
                           {editingBudgetId === budget.id ? (
                             <input
@@ -494,6 +490,10 @@ export function Budgets() {
                           ) : (
                             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
                           )}
+                        </div>
+
+                        <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
+                          {formatMoney(Number(budget.spent))}
                         </div>
 
                         <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: statusColor }}>
@@ -530,8 +530,8 @@ export function Budgets() {
             <div className="card" style={{ padding: '0 12px' }}>
               <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 75px 75px 45px 55px' }}>
                 <div>Categoría</div>
-                <div style={{ textAlign: 'right' }}>Real</div>
                 <div style={{ textAlign: 'right' }}>Presup.</div>
+                <div style={{ textAlign: 'right' }}>Real</div>
                 <div style={{ textAlign: 'center' }}>%</div>
                 <div style={{ width: 55 }}></div>
               </div>
@@ -561,10 +561,6 @@ export function Budgets() {
                     </div>
                     
                     <div className="budget-row-details">
-                      <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: pct > 1 ? 'var(--danger)' : 'var(--text-primary)' }}>
-                        {formatMoney(Number(budget.spent))}
-                      </div>
-
                       <div style={{ textAlign: 'right' }}>
                         {editingBudgetId === budget.id ? (
                           <input
@@ -580,6 +576,10 @@ export function Budgets() {
                         ) : (
                           <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
                         )}
+                      </div>
+
+                      <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: pct > 1 ? 'var(--danger)' : 'var(--text-primary)' }}>
+                        {formatMoney(Number(budget.spent))}
                       </div>
 
                       <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: statusColor }}>
