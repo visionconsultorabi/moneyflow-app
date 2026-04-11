@@ -7,7 +7,7 @@ import { ArrowLeft, CreditCard } from 'lucide-react';
 
 const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
-const INSTALLMENT_OPTIONS = [1, 2, 3, 6, 9, 12, 18, 24];
+const INSTALLMENT_OPTIONS = [1, 2, 3, 5, 6, 9, 12, 18, 24];
 
 export function NewTransaction() {
   const { user } = useAuth();
