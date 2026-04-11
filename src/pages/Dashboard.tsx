@@ -156,19 +156,18 @@ export function Dashboard() {
 
 
 
-      {/* Alerts Section */}
+      {/* Alerts Section - Simplified */}
       {alerts.length > 0 && (
-        <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {alerts.map((alert, i) => (
             <div key={i} style={{ 
-              background: alert.type === 'danger' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-              border: `1px solid ${alert.type === 'danger' ? 'var(--danger)' : 'var(--warning)'}`,
-              padding: '12px 16px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 12
+              background: alert.type === 'danger' ? 'var(--danger-alpha)' : 'var(--warning-alpha)',
+              border: `1px solid ${alert.type === 'danger' ? 'var(--danger-subtle)' : 'var(--warning-subtle)'}`,
+              padding: '6px 12px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 8
             }}>
-              <AlertTriangle size={20} color={alert.type === 'danger' ? 'var(--danger)' : 'var(--warning)'} />
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{alert.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{alert.description}</div>
+              <AlertTriangle size={14} color={alert.type === 'danger' ? 'var(--danger)' : 'var(--warning)'} />
+              <div style={{ fontSize: 12.5, fontWeight: 500, color: alert.type === 'danger' ? 'var(--danger)' : 'var(--warning)' }}>
+                <span style={{ fontWeight: 700 }}>{alert.title}:</span> {alert.description}
               </div>
             </div>
           ))}

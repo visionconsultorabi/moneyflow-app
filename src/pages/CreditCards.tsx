@@ -31,6 +31,17 @@ export function CreditCards() {
     minimum_payment: '',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+  const navigateMonth = (direction: number) => {
+    let nextMonth = currentMonth + direction;
+    let nextYear = currentYear;
+    if (nextMonth > 12) { nextMonth = 1; nextYear++; }
+    if (nextMonth < 1) { nextMonth = 12; nextYear--; }
+    setCurrentMonth(nextMonth);
+    setCurrentYear(nextYear);
+  };
 
   useEffect(() => { if (user) loadData(); }, [user]);
 
@@ -38,7 +49,7 @@ export function CreditCards() {
     setLoading(true);
     const [cardsRes, plansRes, banksRes, statementsRes] = await Promise.all([
       supabase.from('accounts').select('*').eq('account_type', 'credit_card').eq('status', 'active').order('name'),
-      supabase.from('installment_plans').select('*, installments(*)').eq('status', 'active').order('created_at', { ascending: false }),
+      supabase.from('installment_plans').select('*, installments(*)').order('created_at', { ascending: false }),
       supabase.from('accounts').select('*').neq('account_type', 'credit_card').eq('status', 'active').order('name'),
       supabase.from('credit_card_statements').select('*').order('statement_month', { ascending: false }),
     ]);
@@ -224,15 +235,39 @@ export function CreditCards() {
     return { date, diff };
   }
 
+  const openStatementForm = (card: Account) => {
+    setStatementForm(prev => ({
+      ...prev,
+      statement_month: `${currentYear}-${currentMonth.toString().padStart(2, '0')}`
+    }));
+    setSelectedCard(card);
+    setShowStatementForm(true);
+  };
+
   return (
     <div>
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: 12 }}>
         <div>
           <h1 className="page-title">Tarjetas de Crédito</h1>
           <p className="page-subtitle">{cards.length} tarjeta{cards.length !== 1 ? 's' : ''}</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           <Plus size={18} /> Nueva
+        </button>
+      </div>
+
+      {/* Month Navigator */}
+      <div className="card" style={{ padding: '8px 16px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <button className="btn btn-ghost btn-icon" onClick={() => navigateMonth(-1)} style={{ width: 32, height: 32 }}>
+          <Edit2 size={16} style={{ transform: 'rotate(180deg)' }} />
+        </button>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, textTransform: 'capitalize' }}>
+            {new Date(currentYear, currentMonth - 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
+          </div>
+        </div>
+        <button className="btn btn-ghost btn-icon" onClick={() => navigateMonth(1)} style={{ width: 32, height: 32 }}>
+          <Edit2 size={16} />
         </button>
       </div>
 
@@ -246,158 +281,130 @@ export function CreditCards() {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {cards.map(card => {
             const { limit, available, used, pct } = getCardUtilization(card);
             const utilClass = pct > 80 ? 'high' : pct > 50 ? 'medium' : 'low';
-            const cardPlans = plans.filter(p => p.credit_card_id === card.id);
+            
+            // Filter installments for the selected month
+            const selectedMonthStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`;
+            const cardInstallments = plans
+              .filter(p => p.credit_card_id === card.id)
+              .flatMap(p => (p.installments || []).filter(i => i.due_month === selectedMonthStr))
+              .sort((a, b) => a.installment_number - b.installment_number);
+            
+            const cardMonthlyTotal = cardInstallments.reduce((sum, i) => sum + Number(i.amount), 0);
+            
+            // Find statement for selected month
+            const statement = statements.find(s => s.credit_card_id === card.id && s.statement_month === selectedMonthStr);
 
             return (
-              <div key={card.id} onClick={() => setSelectedCard(selectedCard?.id === card.id ? null : card)} style={{ cursor: 'pointer' }}>
-                {/* Credit Card Visual */}
-                <div className="credit-card-visual" style={{ background: `linear-gradient(135deg, ${card.color}33, ${card.color}11, var(--bg-card))`, border: `1px solid ${card.color}44` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div key={card.id} className="card" style={{ padding: 12 }}>
+                {/* Compact Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 32, height: 20, borderRadius: 3, background: `linear-gradient(135deg, ${card.color}, ${card.color}dd)`, border: '1px solid rgba(255,255,255,0.1)' }} />
                     <div>
-                      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{card.institution || 'Tarjeta'}</div>
-                      <div style={{ fontSize: 17, fontWeight: 500, marginTop: 4 }}>{card.name}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{card.name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{card.institution}</div>
                     </div>
                   </div>
-                  {card.last_four_digits && (
-                    <div className="card-number">•••• •••• •••• {card.last_four_digits}</div>
-                  )}
-                  <div className="card-bottom">
-                    <div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>DISPONIBLE</div>
-                      <div style={{ fontSize: 18, fontWeight: 500 }}>{formatMoney(available)}</div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{formatMoney(available)}</div>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>DISPONIBLE</div>
+                  </div>
+                </div>
+
+                {/* Dates & Statements */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  <div style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 600 }}>CIERRE</div>
+                    <div style={{ fontSize: 12, fontWeight: 500 }}>
+                      {statement ? new Date(statement.close_date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : '---'}
+                    </div>
+                  </div>
+                  <div style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 600 }}>VENCIMIENTO</div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: statement && statement.status !== 'paid' ? 'var(--danger)' : 'inherit' }}>
+                      {statement ? new Date(statement.due_date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : '---'}
                     </div>
                   </div>
                 </div>
 
-                {/* Utilization Bar */}
-                <div className="card" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: -1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 400 }}>Utilización: {pct}%</span>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 400 }}>{formatMoney(used)} / {formatMoney(limit)}</span>
-                  </div>
-                  <div className="utilization-bar">
-                    <div className={`utilization-fill ${utilClass}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                  </div>
+                {!statement && (
+                  <button onClick={(e) => { e.stopPropagation(); openStatementForm(card); }} className="btn btn-ghost btn-block" style={{ height: 32, minHeight: 32, fontSize: 11, marginBottom: 12, border: '1px dashed var(--border-strong)' }}>
+                    <Plus size={12} /> Configurar fechas del mes
+                  </button>
+                )}
 
-                  {/* Dates */}
-                  <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
-                    {(() => {
-                      const latestStatement = statements.filter(s => s.credit_card_id === card.id).sort((a, b) => b.statement_month.localeCompare(a.statement_month))[0];
-                      
-                      const closeDate = latestStatement ? new Date(latestStatement.close_date) : (card.billing_close_day ? getNextDate(card.billing_close_day).date : null);
-                      const dueDate = latestStatement ? new Date(latestStatement.due_date) : (card.payment_due_day ? getNextDate(card.payment_due_day).date : null);
-                      
-                      const closeDiff = closeDate ? Math.ceil((closeDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
-                      const dueDiff = dueDate ? Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
-
-                      return (
-                        <>
-                          <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Cierre</div>
-                              {latestStatement && <div className={`badge ${latestStatement.status === 'paid' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: 8 }}>{latestStatement.status}</div>}
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 600 }}>
-                              {closeDate ? closeDate.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : 'N/A'}
-                            </div>
-                            {closeDiff !== null && (
-                              <div style={{ fontSize: 11, color: closeDiff <= 3 && closeDiff >= 0 ? 'var(--warning)' : 'var(--text-muted)' }}>
-                                {closeDiff < 0 ? 'Cerrado' : closeDiff === 0 ? 'Hoy' : closeDiff === 1 ? 'Mañana' : `En ${closeDiff} días`}
-                              </div>
-                            )}
-                          </div>
-                          <div style={{ flex: 1, padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Vencimiento</div>
-                              {latestStatement && latestStatement.status === 'paid' && <CheckCircle size={10} color="var(--success)" />}
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 600 }}>
-                              {dueDate ? dueDate.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : 'N/A'}
-                            </div>
-                            {dueDiff !== null && (
-                              <div style={{ fontSize: 11, color: dueDiff <= 3 && dueDiff >= 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
-                                {latestStatement?.status === 'paid' ? 'Pagado' : (dueDiff < 0 ? 'Vencido' : dueDiff === 0 ? '¡Hoy!' : dueDiff === 1 ? 'Mañana' : `En ${dueDiff} días`)}
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Statements & Active Plans */}
-                  {selectedCard?.id === card.id && (
-                    <div style={{ marginTop: 16 }}>
-                      {/* Statements Section */}
-                      <div style={{ marginBottom: 20 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>Resúmenes Recientes</h4>
-                          <button onClick={(e) => { e.stopPropagation(); setShowStatementForm(true); }} className="btn btn-ghost btn-xs" style={{ color: 'var(--primary-500)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Plus size={14} /> Nuevo
-                          </button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {statements.filter(s => s.credit_card_id === card.id).slice(0, 3).map(s => (
-                            <div key={s.id} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div>
-                                <div style={{ fontSize: 12, fontWeight: 500 }}>{new Date(s.statement_month).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}</div>
-                                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Vence: {new Date(s.due_date).toLocaleDateString('es-AR')}</div>
-                              </div>
-                              <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: 13, fontWeight: 600 }}>{formatMoney(s.total_amount)}</div>
-                                {s.status !== 'paid' ? (
-                                  <button onClick={(e) => { e.stopPropagation(); handleRegisterPayment(s); }} className="btn btn-ghost btn-xs" style={{ padding: '2px 4px', fontSize: 9, color: 'var(--primary-500)' }}>
-                                    Pagar Total
-                                  </button>
-                                ) : (
-                                  <div style={{ fontSize: 9, color: 'var(--success)', fontWeight: 600 }}>PAGADO</div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'var(--text-secondary)' }}>Planes de Cuotas Activos</h4>
-                      {cardPlans.map(plan => {
-                        const paidCount = plan.installments?.filter(i => i.status === 'paid').length || 0;
-                        return (
-                          <div key={plan.id} style={{ padding: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', marginBottom: 8 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <div style={{ fontWeight: 500, fontSize: 14 }}>{plan.description || 'Compra en cuotas'}</div>
-                              <div style={{ fontWeight: 600, fontSize: 14 }}>{formatMoney(plan.installment_amount)}/mes</div>
-                            </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                              Cuota {paidCount + 1} de {plan.installment_count} · Total: {formatMoney(plan.total_amount)}
-                            </div>
-                            <div className="progress-bar" style={{ marginTop: 8, height: 4 }}>
-                              <div className="progress-bar-fill green" style={{ width: `${(paidCount / plan.installment_count) * 100}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
+                {/* Installment List (Compact) */}
+                {cardInstallments.length > 0 ? (
+                  <div style={{ background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', padding: 8, marginTop: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' }}>CUOTAS DEL MES</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' }}>MONTO</span>
                     </div>
-                  )}
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
-                    <button onClick={(e) => { e.stopPropagation(); navigate(`/transactions?account=${card.id}`); }} className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <ArrowRightLeft size={14} /> Movimientos
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); startEdit(card); }} className="btn btn-ghost btn-sm" style={{ padding: 4 }}>
-                      <Edit2 size={16} />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }} className="btn btn-ghost btn-sm" style={{ padding: 4, color: 'var(--danger)' }}>
-                      <X size={16} />
-                    </button>
+                    {cardInstallments.map(inst => {
+                      const plan = plans.find(p => p.id === inst.installment_plan_id);
+                      return (
+                        <div key={inst.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', fontSize: 12.5 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: 450 }}>{plan?.description}</span>
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Cuota {inst.installment_number} de {plan?.installment_count}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 600 }}>{formatMoney(Number(inst.amount))}</span>
+                            {inst.status === 'paid' && <CheckCircle size={12} color="var(--success)" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 8px 4px', borderTop: '1px solid var(--border-subtle)', marginTop: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700 }}>SUBTOTAL TARJETA</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary-500)' }}>{formatMoney(cardMonthlyTotal)}</span>
+                    </div>
+                    {statement && statement.status !== 'paid' && (
+                      <button onClick={(e) => { e.stopPropagation(); setSelectedCard(card); handleRegisterPayment(statement); }} className="btn btn-primary btn-block" style={{ height: 32, minHeight: 32, fontSize: 12, marginTop: 8 }}>
+                        Pagar Resumen
+                      </button>
+                    )}
                   </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '12px', fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
+                    No hay cuotas para este mes
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
+                  <button onClick={(e) => { e.stopPropagation(); navigate(`/transactions?account=${card.id}`); }} className="btn btn-ghost btn-xs" style={{ fontSize: 11 }}>
+                    Movimientos
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); startEdit(card); }} className="btn btn-ghost btn-xs">
+                    <Edit2 size={13} />
+                  </button>
                 </div>
               </div>
             );
           })}
+
+          {/* Monthly Grand Total */}
+          <div className="card" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--primary-500)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>TOTAL CUOTAS DEL MES</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--primary-400)' }}>
+                  {formatMoney(cards.reduce((sum, card) => {
+                    const selectedMonthStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`;
+                    return sum + plans
+                      .filter(p => p.credit_card_id === card.id)
+                      .flatMap(p => (p.installments || []).filter(i => i.due_month === selectedMonthStr))
+                      .reduce((s, i) => s + Number(i.amount), 0);
+                  }, 0))}
+                </div>
+              </div>
+              <CreditCard size={32} color="var(--primary-500)" style={{ opacity: 0.5 }} />
+            </div>
+          </div>
         </div>
       )}
 
@@ -410,6 +417,9 @@ export function CreditCards() {
               <h2 className="modal-title">{editingId ? 'Editar Tarjeta' : 'Nueva Tarjeta'}</h2>
               <button className="modal-close" onClick={() => { setShowForm(false); setEditingId(null); setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6' }); }}><X size={18} /></button>
             </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, padding: '0 4px' }}>
+               Configurá los valores base. Podrás ajustar las fechas exactas de cada mes usando el botón "Configurar fechas" en la vista principal.
+            </p>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label className="form-label">Nombre</label>
@@ -468,13 +478,16 @@ export function CreditCards() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-handle" />
             <div className="modal-header">
-              <h2 className="modal-title">Nuevo Resumen - {selectedCard.name}</h2>
+              <h2 className="modal-title">Configurar Fechas - {selectedCard.name}</h2>
               <button className="modal-close" onClick={() => setShowStatementForm(false)}><X size={18} /></button>
             </div>
+            <div style={{ padding: '0 4px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>
+              Estás configurando el ciclo para <b>{new Date(currentYear, currentMonth - 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}</b>.
+            </div>
             <form onSubmit={handleSaveStatement}>
-              <div className="form-group">
+              <div className="form-group" style={{ display: 'none' }}>
                 <label className="form-label">Mes del Resumen</label>
-                <input className="form-input" type="month" value={statementForm.statement_month} onChange={e => setStatementForm({...statementForm, statement_month: e.target.value})} required />
+                <input className="form-input" type="month" value={statementForm.statement_month} readOnly />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">

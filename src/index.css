@@ -38,8 +38,14 @@
 
   /* Semantic */
   --danger: #EF4444;
+  --danger-alpha: rgba(239, 68, 68, 0.1);
+  --danger-subtle: rgba(239, 68, 68, 0.2);
   --warning: #F59E0B;
+  --warning-alpha: rgba(245, 158, 11, 0.1);
+  --warning-subtle: rgba(245, 158, 11, 0.2);
   --success: #10B981;
+  --success-alpha: rgba(16, 185, 129, 0.1);
+  --success-subtle: rgba(16, 185, 129, 0.2);
   --info: #3B82F6;
 
   /* Surfaces - Dark Mode */
