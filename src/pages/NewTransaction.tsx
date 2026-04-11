@@ -37,6 +37,18 @@ export function NewTransaction() {
 
   useEffect(() => { if (user) loadData(); }, [user]);
 
+  // Synchronize credit_card_id for transfers from credit cards
+  useEffect(() => {
+    if (form.type === 'transfer') {
+      const isCC = creditCards.some(c => c.id === form.account_id);
+      if (isCC) {
+        setForm(f => ({ ...f, credit_card_id: f.account_id }));
+      } else {
+        setForm(f => ({ ...f, credit_card_id: '' }));
+      }
+    }
+  }, [form.account_id, form.type, creditCards]);
+
   async function loadData() {
     setLoading(true);
     const [accsRes, catsRes, statementsRes] = await Promise.all([
@@ -61,7 +73,7 @@ export function NewTransaction() {
     form.type === 'transfer' ? false : c.type === form.type || c.type === 'both'
   );
 
-  const isCreditCard = form.payment_method === 'credit';
+  const isCreditCard = form.payment_method === 'credit' || (form.type === 'transfer' && creditCards.some(c => c.id === form.account_id));
   const selectedCard = creditCards.find(c => c.id === form.credit_card_id);
   const selectedAccount = accounts.find(a => a.id === form.account_id) || selectedCard;
   const currency = selectedAccount?.currency || 'ARS';
@@ -160,12 +172,13 @@ export function NewTransaction() {
         const { data: txData, error: txError } = await supabase.from('transactions').insert({
           user_id: user!.id,
           account_id: accountId,
-          type: 'expense',
+          type: form.type,
           amount: amount,
-          category_id: form.category_id || null,
+          category_id: form.type !== 'transfer' ? (form.category_id || null) : null,
           description: form.description,
           transaction_date: form.transaction_date,
-          payment_method: 'credit',
+          payment_method: form.type === 'transfer' ? 'transfer' : 'credit',
+          to_account_id: form.type === 'transfer' ? form.to_account_id : null,
           is_installment_purchase: true,
           installment_plan_id: planData.id,
         }).select().single();
@@ -269,7 +282,7 @@ export function NewTransaction() {
         )}
 
         {/* Account Selector */}
-        {!isCreditCard && (
+        {(!isCreditCard || form.type === 'transfer') && (
           <div className="form-group">
             <label className="form-label">Cuenta</label>
             <select className="form-select" value={form.account_id} onChange={e => setForm({ ...form, account_id: e.target.value })} required>
@@ -304,19 +317,21 @@ export function NewTransaction() {
         {/* Credit Card Section */}
         {isCreditCard && (
           <>
-            <div className="form-group">
-              <label className="form-label">Tarjeta de Crédito</label>
-              {creditCards.length === 0 ? (
-                <div className="auth-error">No tenés tarjetas de crédito registradas. Creá una primero.</div>
-              ) : (
-                <select className="form-select" value={form.credit_card_id} onChange={e => setForm({ ...form, credit_card_id: e.target.value })} required>
-                  <option value="">Seleccionar tarjeta</option>
-                  {creditCards.map(c => (
-                    <option key={c.id} value={c.id}>💳 {c.name} (Disp: {formatMoney(Number(c.current_balance), c.currency)})</option>
-                  ))}
-                </select>
-              )}
-            </div>
+            {form.payment_method === 'credit' && (
+              <div className="form-group">
+                <label className="form-label">Tarjeta de Crédito</label>
+                {creditCards.length === 0 ? (
+                  <div className="auth-error">No tenés tarjetas de crédito registradas. Creá una primero.</div>
+                ) : (
+                  <select className="form-select" value={form.credit_card_id} onChange={e => setForm({ ...form, credit_card_id: e.target.value })} required>
+                    <option value="">Seleccionar tarjeta</option>
+                    {creditCards.map(c => (
+                      <option key={c.id} value={c.id}>💳 {c.name} (Disp: {formatMoney(Number(c.current_balance), c.currency)})</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
 
             {/* Installment Count */}
             <div className="form-group">
@@ -372,7 +387,7 @@ export function NewTransaction() {
                   <span style={{ fontWeight: 600, fontSize: 13.5 }}>Detalle de Cuotas</span>
                 </div>
                 <div className="installment-preview-row">
-                  <span className="label">Total de la compra</span>
+                  <span className="label">Total {form.type === 'transfer' ? 'a transferir' : 'de la compra'}</span>
                   <span className="value">{formatMoney(amount)}</span>
                 </div>
                 <div className="installment-preview-row">
