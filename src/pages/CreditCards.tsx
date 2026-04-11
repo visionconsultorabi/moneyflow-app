@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, InstallmentPlan, CreditCardStatement } from '../types/database';
-import { Plus, X, CreditCard, Edit2, ArrowRightLeft, CheckCircle } from 'lucide-react';
+import { Plus, X, CreditCard, Edit2, CheckCircle } from 'lucide-react';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -119,11 +119,6 @@ export function CreditCards() {
     setShowForm(true);
   }
 
-  async function deleteCard(id: string) {
-    if (!confirm('¿Eliminar esta tarjeta? Se borrarán los planes de cuotas asociados.')) return;
-    await supabase.from('accounts').delete().eq('id', id);
-    loadData();
-  }
 
   async function handleSaveStatement(e: FormEvent) {
     e.preventDefault();
@@ -227,13 +222,6 @@ export function CreditCards() {
     return { limit, available, used, pct };
   }
 
-  function getNextDate(day: number) {
-    const now = new Date();
-    const date = new Date(now.getFullYear(), now.getMonth(), day);
-    if (date <= now) date.setMonth(date.getMonth() + 1);
-    const diff = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return { date, diff };
-  }
 
   const openStatementForm = (card: Account) => {
     setStatementForm(prev => ({
@@ -283,8 +271,7 @@ export function CreditCards() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {cards.map(card => {
-            const { limit, available, used, pct } = getCardUtilization(card);
-            const utilClass = pct > 80 ? 'high' : pct > 50 ? 'medium' : 'low';
+            const { available } = getCardUtilization(card);
             
             // Filter installments for the selected month
             const selectedMonthStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`;
