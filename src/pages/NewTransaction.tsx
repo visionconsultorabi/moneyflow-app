@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, Category, CreditCardStatement } from '../types/database';
-import { ArrowLeft, CreditCard, Calendar, MessageSquare, ChevronDown } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { CompactSelector } from '../components/CompactSelector';
 
-const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
 const INSTALLMENT_OPTIONS = [1, 2, 3, 5, 6, 9, 12, 18, 24];
 
