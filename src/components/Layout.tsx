@@ -51,13 +51,13 @@ export function Layout() {
             <PieChart size={20} />
             Transacciones
           </NavLink>
-          <NavLink to="/reports" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <BarChart2 size={20} />
-            Reportes
-          </NavLink>
           <NavLink to="/budgets" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <PieChart size={20} />
             Presupuestos
+          </NavLink>
+          <NavLink to="/reports" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <BarChart2 size={20} />
+            Reportes
           </NavLink>
           <NavLink to="/savings" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <Target size={20} />
@@ -121,8 +121,8 @@ export function Layout() {
               <NavLink to="/transactions" onClick={() => setIsMenuOpen(false)} className="menu-link">
                 <PieChart size={20} /> Transacciones
               </NavLink>
-              <NavLink to="/budgets" onClick={() => setIsMenuOpen(false)} className="menu-link">
-                <PieChart size={20} /> Presupuestos
+              <NavLink to="/reports" onClick={() => setIsMenuOpen(false)} className="menu-link">
+                <BarChart2 size={20} /> Reportes
               </NavLink>
               <NavLink to="/savings" onClick={() => setIsMenuOpen(false)} className="menu-link">
                 <Target size={20} /> Ahorros
@@ -163,9 +163,9 @@ export function Layout() {
           <CreditCard />
           <span>Tarjetas</span>
         </NavLink>
-        <NavLink to="/reports" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
-          <BarChart2 />
-          <span>Reportes</span>
+        <NavLink to="/budgets" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
+          <PieChart />
+          <span>Presupuestos</span>
         </NavLink>
       </nav>
     </div>

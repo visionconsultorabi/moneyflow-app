@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Budget, Category } from '../types/database';
 import { Plus, X, PieChart, Settings, Edit2, Trash2, RefreshCw } from 'lucide-react';
+import { CompactSelector } from '../components/CompactSelector';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -309,17 +310,17 @@ export function Budgets() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 12, marginTop: -4, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header" style={{ marginBottom: 10, marginTop: -4, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
         <div className="desktop-only">
           <h1 className="page-title">Presupuestos</h1>
           <p className="page-subtitle">{monthNames[month - 1]} {year}</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flex: 1, justifyContent: 'flex-end', minWidth: 200 }}>
-          <button className="btn btn-secondary btn-sm" style={{ height: 38, padding: '0 12px', flex: 1, maxWidth: 140 }} onClick={() => setShowCategoryManager(true)}>
-            <Settings size={16} /> <span>Categorías</span>
+          <button className="btn btn-secondary btn-sm" style={{ height: 32, padding: '0 10px', flex: 1, maxWidth: 120, fontSize: 12 }} onClick={() => setShowCategoryManager(true)}>
+            <Settings size={14} /> <span>Categorías</span>
           </button>
-          <button className="btn btn-primary btn-sm" style={{ height: 38, padding: '0 12px', flex: 1, maxWidth: 140 }} onClick={() => setShowForm(true)}>
-            <Plus size={16} /> <span>Nuevo</span>
+          <button className="btn btn-primary btn-sm" style={{ height: 32, padding: '0 10px', flex: 1, maxWidth: 120, fontSize: 12 }} onClick={() => setShowForm(true)}>
+            <Plus size={14} /> <span>Nuevo</span>
           </button>
         </div>
       </div>
@@ -653,14 +654,15 @@ export function Budgets() {
               {monthNames[month - 1]} {year}
             </p>
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label className="form-label">Categoría</label>
-                <select className="form-select" value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}>
-                  <option value="">Presupuesto General</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+              <div style={{ marginBottom: 12 }}>
+                <CompactSelector
+                  label="Categoría"
+                  options={categories}
+                  selectedId={form.category_id}
+                  onChange={id => setForm({ ...form, category_id: id })}
+                  placeholder="Presupuesto General"
+                  variant="grid"
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Monto Máximo</label>
@@ -708,19 +710,20 @@ export function Budgets() {
               </div>
             </form>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {categories.map(c => (
-                <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontWeight: 500 }}>{c.name}</span>
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>{c.icon}</span>
+                    <span style={{ fontWeight: 500, fontSize: 13 }}>{c.name}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => { setEditingCategory(c); setCategoryForm({ name: c.name, icon: '', type: (c.type as 'income' | 'expense') || 'expense' }); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                      <Edit2 size={16} />
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => { setEditingCategory(c); setCategoryForm({ name: c.name, icon: c.icon, type: (c.type as 'income' | 'expense') || 'expense' }); }} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                      <Edit2 size={14} />
                     </button>
                     {!c.is_default && (
                       <button onClick={() => deleteCategory(c.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--danger)' }}>
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                       </button>
                     )}
                   </div>

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Transaction, Account, Category } from '../types/database';
 import { Plus, Search, ArrowRightLeft, Trash2, X, Edit2 } from 'lucide-react';
+import { CompactSelector } from '../components/CompactSelector';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -317,51 +318,32 @@ export function Transactions() {
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Cuenta</label>
-                <select 
-                  className="form-select" 
-                  value={editForm.account_id} 
-                  onChange={e => setEditForm({...editForm, account_id: e.target.value})} 
-                  required
-                >
-                  <option value="">Seleccionar cuenta</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <CompactSelector
+                  label="Cuenta"
+                  options={accounts}
+                  selectedId={editForm.account_id}
+                  onChange={id => setEditForm({...editForm, account_id: id})}
+                />
 
-              {editingTx.type === 'transfer' ? (
-                <div className="form-group">
-                  <label className="form-label">Cuenta Destino</label>
-                  <select 
-                    className="form-select" 
-                    value={editForm.to_account_id} 
-                    onChange={e => setEditForm({...editForm, to_account_id: e.target.value})} 
-                    required
-                  >
-                    <option value="">Seleccionar destino</option>
-                    {accounts.filter(a => a.id !== editForm.account_id).map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="form-group">
-                  <label className="form-label">Categoría</label>
-                  <select 
-                    className="form-select" 
-                    value={editForm.category_id} 
-                    onChange={e => setEditForm({...editForm, category_id: e.target.value})}
-                  >
-                    <option value="">Sin categoría</option>
-                    {modalCategories.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                {editingTx.type === 'transfer' ? (
+                  <CompactSelector
+                    label="Cuenta Destino"
+                    options={accounts.filter(a => a.id !== editForm.account_id)}
+                    selectedId={editForm.to_account_id}
+                    onChange={id => setEditForm({...editForm, to_account_id: id})}
+                  />
+                ) : (
+                  <CompactSelector
+                    label="Categoría"
+                    options={modalCategories}
+                    selectedId={editForm.category_id}
+                    onChange={id => setEditForm({...editForm, category_id: id})}
+                    variant="grid"
+                    placeholder="Sin categoría"
+                  />
+                )}
+              </div>
 
               <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={savingEdit}>
                 {savingEdit ? 'Guardando...' : 'Guardar Cambios'}

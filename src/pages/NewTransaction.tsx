@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, Category, CreditCardStatement } from '../types/database';
-import { ArrowLeft, CreditCard } from 'lucide-react';
+import { ArrowLeft, CreditCard, Calendar, MessageSquare, ChevronDown } from 'lucide-react';
+import { CompactSelector } from '../components/CompactSelector';
 
 const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
@@ -229,7 +230,7 @@ export function NewTransaction() {
 
       <form onSubmit={handleSubmit}>
         {/* Type selector */}
-        <div className="tabs" style={{ marginBottom: 24 }}>
+        <div className="tabs" style={{ marginBottom: 12 }}>
           <button type="button" className={`tab ${form.type === 'expense' ? 'active' : ''}`} onClick={() => setForm({ ...form, type: 'expense', payment_method: 'debit' })}>
             Gasto
           </button>
@@ -241,195 +242,144 @@ export function NewTransaction() {
           </button>
         </div>
 
-        {/* Amount */}
-        <div className="form-group" style={{ marginBottom: 24 }}>
-          <label className="form-label">Monto</label>
-          <div style={{ position: 'relative' }}>
-            <span className="amount-currency">
-              {new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(0).replace(/\d/g, '').trim()}
-            </span>
-            <input
-              className="form-input amount-input"
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              value={form.amount}
-              onChange={e => setForm({ ...form, amount: e.target.value })}
-              placeholder="0"
-              required
-              autoFocus
-            />
-          </div>
-        </div>
-
-        {/* Payment Method */}
-        {form.type === 'expense' && (
-          <div className="form-group">
-            <label className="form-label">Método de Pago</label>
-            <div className="tabs">
-              <button type="button" className={`tab ${form.payment_method === 'cash' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'cash' })}>
-                💵 Efectivo
-              </button>
-              <button type="button" className={`tab ${form.payment_method === 'debit' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'debit' })}>
-                Débito
-              </button>
-              <button type="button" className={`tab ${form.payment_method === 'credit' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'credit' })}>
-                Crédito
-              </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Amount */}
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Monto</label>
+            <div style={{ position: 'relative' }}>
+              <span className="amount-currency">
+                {new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(0).replace(/\d/g, '').trim()}
+              </span>
+              <input
+                className="form-input amount-input"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                value={form.amount}
+                onChange={e => setForm({ ...form, amount: e.target.value })}
+                placeholder="0"
+                required
+                autoFocus
+              />
             </div>
           </div>
-        )}
 
-        {/* Account Selector */}
-        {(!isCreditCard || form.type === 'transfer') && (
-          <div className="form-group">
-            <label className="form-label">Cuenta</label>
-            <select className="form-select" value={form.account_id} onChange={e => setForm({ ...form, account_id: e.target.value })} required>
-              <option value="">Seleccionar cuenta</option>
-              {form.type === 'transfer' ? (
-                // For transfers, can include CC as source (for paying merchants in advance)
-                [...accounts, ...creditCards].map(a => (
-                  <option key={a.id} value={a.id}>{a.name} ({formatMoney(Number(a.current_balance))})</option>
-                ))
-              ) : (
-                accounts.map(a => (
-                  <option key={a.id} value={a.id}>{a.name} ({formatMoney(Number(a.current_balance), a.currency)})</option>
-                ))
-              )}
-            </select>
-          </div>
-        )}
-
-        {/* Transfer destination */}
-        {form.type === 'transfer' && (
-          <div className="form-group">
-            <label className="form-label">Cuenta Destino</label>
-            <select className="form-select" value={form.to_account_id} onChange={e => setForm({ ...form, to_account_id: e.target.value })} required>
-              <option value="">Seleccionar destino</option>
-              {([...accounts, ...creditCards]).filter(a => a.id !== form.account_id).map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Credit Card Section */}
-        {isCreditCard && (
-          <>
-            {form.payment_method === 'credit' && (
-              <div className="form-group">
-                <label className="form-label">Tarjeta de Crédito</label>
-                {creditCards.length === 0 ? (
-                  <div className="auth-error">No tenés tarjetas de crédito registradas. Creá una primero.</div>
-                ) : (
-                  <select className="form-select" value={form.credit_card_id} onChange={e => setForm({ ...form, credit_card_id: e.target.value })} required>
-                    <option value="">Seleccionar tarjeta</option>
-                    {creditCards.map(c => (
-                      <option key={c.id} value={c.id}>💳 {c.name} (Disp: {formatMoney(Number(c.current_balance), c.currency)})</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-
-            {/* Installment Count */}
-            <div className="form-group">
-              <label className="form-label">Cuotas</label>
-              <div className="installment-options">
-                {INSTALLMENT_OPTIONS.map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    className={`installment-option ${form.installment_count === n ? 'selected' : ''}`}
-                    onClick={() => setForm({ ...form, installment_count: n })}
-                  >
-                    {n === 1 ? '1 pago' : `${n} cuotas`}
-                  </button>
-                ))}
+          {/* Payment Method Selector for Expenses */}
+          {form.type === 'expense' && (
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Método de Pago</label>
+              <div className="tabs" style={{ padding: 2 }}>
+                <button type="button" className={`tab ${form.payment_method === 'cash' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'cash' })}>
+                  Efectivo
+                </button>
+                <button type="button" className={`tab ${form.payment_method === 'debit' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'debit' })}>
+                  Débito
+                </button>
+                <button type="button" className={`tab ${form.payment_method === 'credit' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'credit' })}>
+                  Crédito
+                </button>
               </div>
             </div>
+          )}
 
-            {/* Interest toggle */}
-            {form.installment_count > 1 && (
-              <div className="form-group">
-                <div className="tabs" style={{ maxWidth: 300 }}>
-                  <button type="button" className={`tab ${!form.has_interest ? 'active' : ''}`} onClick={() => setForm({ ...form, has_interest: false })}>
-                    Sin Interés
-                  </button>
-                  <button type="button" className={`tab ${form.has_interest ? 'active' : ''}`} onClick={() => setForm({ ...form, has_interest: true })}>
-                    Con Interés
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Interest Rate */}
-            {form.has_interest && form.installment_count > 1 && (
-              <div className="form-group">
-                <label className="form-label">Tasa de Interés Anual (%)</label>
-                <input
-                  className="form-input"
-                  type="number"
-                  step="0.1"
-                  value={form.interest_rate}
-                  onChange={e => setForm({ ...form, interest_rate: e.target.value })}
-                  placeholder="Ej: 120"
+          {/* Account / Card Selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {form.type === 'transfer' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <CompactSelector
+                  label="Desde"
+                  options={[...accounts, ...creditCards]}
+                  selectedId={form.account_id}
+                  onChange={id => setForm({ ...form, account_id: id })}
+                />
+                <CompactSelector
+                  label="Hacia"
+                  options={([...accounts, ...creditCards]).filter(a => a.id !== form.account_id)}
+                  selectedId={form.to_account_id}
+                  onChange={id => setForm({ ...form, to_account_id: id })}
                 />
               </div>
+            ) : isCreditCard ? (
+              <CompactSelector
+                label="Tarjeta de Crédito"
+                options={creditCards}
+                selectedId={form.credit_card_id}
+                onChange={id => setForm({ ...form, credit_card_id: id })}
+                placeholder="Seleccionar tarjeta..."
+              />
+            ) : (
+              <CompactSelector
+                label={form.type === 'income' ? 'Cuenta de Destino' : 'Cuenta'}
+                options={accounts}
+                selectedId={form.account_id}
+                onChange={id => setForm({ ...form, account_id: id })}
+                placeholder="Seleccionar cuenta..."
+              />
             )}
+          </div>
 
-            {/* Installment Preview */}
-            {amount > 0 && form.installment_count > 1 && form.credit_card_id && (
-              <div className="installment-preview">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <CreditCard size={18} color="var(--primary-400)" />
-                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>Detalle de Cuotas</span>
-                </div>
-                <div className="installment-preview-row">
-                  <span className="label">Total {form.type === 'transfer' ? 'a transferir' : 'de la compra'}</span>
-                  <span className="value">{formatMoney(amount)}</span>
-                </div>
-                <div className="installment-preview-row">
-                  <span className="label">{form.installment_count} cuotas de</span>
-                  <span className="value" style={{ color: 'var(--primary-400)', fontSize: 16 }}>{formatMoney(installmentAmount)}</span>
-                </div>
-                {financingCost > 0 && (
-                  <div className="installment-preview-row">
-                    <span className="label">Costo financiero</span>
-                    <span className="value" style={{ color: 'var(--warning)' }}>{formatMoney(financingCost)}</span>
-                  </div>
-                )}
-                <div className="installment-preview-row" style={{ borderTop: '1px solid var(--border-subtle)', marginTop: 8, paddingTop: 8 }}>
-                  <span className="label">Primer cuota</span>
-                  <span className="value">{getFirstInstallmentMonth().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}</span>
-                </div>
-                <div className="installment-preview-row">
-                  <span className="label">Última cuota</span>
-                  <span className="value">
-                    {(() => {
-                      const first = getFirstInstallmentMonth();
-                      const last = new Date(first.getFullYear(), first.getMonth() + form.installment_count - 1, 1);
-                      return last.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-                    })()}
-                  </span>
+          {/* Credit Card Installments */}
+          {isCreditCard && (
+            <div style={{ marginTop: -4 }}>
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <label className="form-label">Cuotas</label>
+                <div className="installment-options">
+                  {INSTALLMENT_OPTIONS.map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`installment-option ${form.installment_count === n ? 'selected' : ''}`}
+                      onClick={() => setForm({ ...form, installment_count: n })}
+                    >
+                      {n === 1 ? '1' : n}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-          </>
-        )}
 
-        {/* Category */}
-        {form.type !== 'transfer' && (
-          <div className="form-group">
-            <label className="form-label">Categoría</label>
-            <select className="form-select" value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}>
-              <option value="">Sin categoría</option>
-              {filteredCategories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+              {form.installment_count > 1 && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'end' }}>
+                  <div className="form-group">
+                    <label className="form-label">Interés</label>
+                    <div className="tabs" style={{ padding: 2 }}>
+                      <button type="button" className={`tab ${!form.has_interest ? 'active' : ''}`} onClick={() => setForm({ ...form, has_interest: false })}>
+                        Sin
+                      </button>
+                      <button type="button" className={`tab ${form.has_interest ? 'active' : ''}`} onClick={() => setForm({ ...form, has_interest: true })}>
+                        Con
+                      </button>
+                    </div>
+                  </div>
+                  {form.has_interest && (
+                    <div className="form-group">
+                      <label className="form-label">TNA %</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        step="0.1"
+                        value={form.interest_rate}
+                        onChange={e => setForm({ ...form, interest_rate: e.target.value })}
+                        placeholder="120"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Category Selector */}
+          {form.type !== 'transfer' && (
+            <CompactSelector
+              label="Categoría"
+              options={filteredCategories}
+              selectedId={form.category_id}
+              onChange={id => setForm({ ...form, category_id: id })}
+              placeholder="Sin categoría"
+              variant="grid"
+            />
+          )}
+        </div>
 
         {/* Description */}
         <div className="form-group">
