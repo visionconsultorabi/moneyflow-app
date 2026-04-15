@@ -35,8 +35,9 @@ export function Reports() {
       .lte('transaction_date', endOfMonth);
 
     if (monthTxs) {
+      const filteredMonthTxs = (monthTxs || []).filter((t: any) => !t.is_installment_purchase);
       const grouped: Record<string, { value: number, color: string }> = {};
-      monthTxs.forEach(tx => {
+      filteredMonthTxs.forEach(tx => {
         const cat: any = Array.isArray(tx.category) ? tx.category[0] : tx.category;
         const catName = cat?.name || 'Sin categoría';
         const color = cat?.color || '#9ca3af';
@@ -66,6 +67,7 @@ export function Reports() {
       .gte('due_month', sixMonthsAgo.toISOString().split('T')[0]);
 
     if (flowTxs) {
+      const filteredFlowTxs = (flowTxs || []).filter((t: any) => !t.is_installment_purchase);
       const monthlyData: Record<string, { income: number, expense: number }> = {};
       
       // Initialize last 6 months
@@ -75,7 +77,7 @@ export function Reports() {
         monthlyData[key] = { income: 0, expense: 0 };
       }
 
-      flowTxs.forEach(tx => {
+      filteredFlowTxs.forEach(tx => {
         const d = new Date(tx.transaction_date);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         if (monthlyData[key]) {

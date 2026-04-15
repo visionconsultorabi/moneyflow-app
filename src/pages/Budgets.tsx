@@ -79,7 +79,7 @@ export function Budgets() {
     } else {
       // Calculate from previous month
       if (prevBudgetsRes.data) {
-        const pTxs = prevTxsRes.data || [];
+        const pTxs = (prevTxsRes.data || []).filter(t => !t.is_installment_purchase);
         const pInsts = prevInstsRes.data || [];
         
         const prevEnriched = prevBudgetsRes.data.map((b: any) => {
@@ -109,7 +109,7 @@ export function Budgets() {
     }
 
     if (budgetsRes.data) {
-      const txs = (txsRes.data || []) as any[];
+      const txs = (txsRes.data || []).filter(t => !t.is_installment_purchase) as any[];
       setAllMonthTransactions(txs);
       const budgetMap = new Map((budgetsRes.data || []).map(b => [b.category_id, b]));
       

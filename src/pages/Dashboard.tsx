@@ -48,7 +48,7 @@ export function Dashboard() {
     if (installmentsRes.data) setMonthlyInstallments(installmentsRes.data as any);
     if (savingsRes.data) setSavingsGoals(savingsRes.data);
     
-    if (currentMonthTxsRes.data) setCurrentMonthTxs(currentMonthTxsRes.data as any);
+    if (currentMonthTxsRes.data) setCurrentMonthTxs((currentMonthTxsRes.data as any).filter((t: any) => !t.is_installment_purchase));
     
     // Check recurring transactions
     await checkRecurringTransactions();
