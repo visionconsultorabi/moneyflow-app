@@ -106,6 +106,7 @@ export interface Budget {
   amount: number;
   spent: number;
   include_installments: boolean;
+  is_synthetic?: boolean;
   details: { concept: string; amount: number }[];
   created_at: string;
   category?: Category;

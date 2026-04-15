@@ -15,6 +15,7 @@ interface CompactSelectorProps {
   onChange: (id: string) => void;
   placeholder?: string;
   variant?: 'grid' | 'list';
+  disabled?: boolean;
 }
 
 export const CompactSelector: React.FC<CompactSelectorProps> = ({
@@ -23,22 +24,25 @@ export const CompactSelector: React.FC<CompactSelectorProps> = ({
   selectedId,
   onChange,
   placeholder = 'Seleccionar...',
-  variant = 'list'
+  variant = 'list',
+  disabled = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find(o => o.id === selectedId);
 
   const handleSelect = (id: string) => {
+    if (disabled) return;
     onChange(id);
     setIsOpen(false);
   };
 
   return (
-    <div className="form-group">
+    <div className={`form-group ${disabled ? 'disabled' : ''}`} style={{ opacity: disabled ? 0.6 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
       <label className="form-label">{label}</label>
       <div 
         className="form-select-trigger" 
-        onClick={() => setIsOpen(true)}
+        onClick={() => !disabled && setIsOpen(true)}
+        style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
           {selectedOption ? (
