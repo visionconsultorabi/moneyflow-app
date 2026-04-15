@@ -562,7 +562,6 @@ export function Budgets() {
                             <span>{budget.category?.icon || '💰'}</span>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: budget.is_synthetic ? 'italic' : 'normal', opacity: budget.is_synthetic ? 0.7 : 1 }}>
                               {budget.category?.name}
-                              {budget.is_synthetic && ' (No p.)'}
                             </span>
                           </div>
                           <div className="mobile-only" style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
@@ -672,7 +671,6 @@ export function Budgets() {
                             <span>{budget.category?.icon || '📦'}</span>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: budget.is_synthetic ? 'italic' : 'normal', opacity: budget.is_synthetic ? 0.7 : 1 }}>
                               {budget.category?.name || 'General'}
-                              {budget.is_synthetic && ' (No p.)'}
                             </span>
                           </div>
                           <div className="mobile-only" style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
