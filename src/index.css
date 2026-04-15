@@ -8,6 +8,7 @@
   --primary-300: #7DD3FC;
   --primary-400: #38BDF8;
   --primary-500: #0EA5E9;
+  --primary-500-rgb: 14, 165, 233;
   --primary-600: #0284C7;
   --primary-700: #0369A1;
   --primary-800: #075985;
@@ -1715,6 +1716,16 @@ body {
   padding: 10px 0;
   border-bottom: 1px solid var(--border-subtle);
   align-items: center;
+  transition: background-color var(--transition-fast);
+}
+
+.budget-table-row:hover {
+  background: var(--bg-elevated);
+}
+
+.budget-table-row.synthetic {
+  background: rgba(var(--primary-500-rgb), 0.02);
+  opacity: 0.9;
 }
 
 .budget-table-row:last-child {

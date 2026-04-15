@@ -28,6 +28,10 @@ export function Budgets() {
   const [monthInstallments, setMonthInstallments] = useState<any[]>([]);
   const [totalIncomeActual, setTotalIncomeActual] = useState(0);
   const [totalExpenseActual, setTotalExpenseActual] = useState(0);
+  const [allMonthTransactions, setAllMonthTransactions] = useState<any[]>([]);
+  const [selectedCategoryDetail, setSelectedCategoryDetail] = useState<{ id: string | null; name: string } | null>(null);
+  const [expandedBudgets, setExpandedBudgets] = useState<Set<string>>(new Set());
+  const [conceptLines, setConceptLines] = useState<{ concept: string; amount: string }[]>([]);
 
   // Initial balance editing
   const [editingInitialBalance, setEditingInitialBalance] = useState(false);
@@ -50,7 +54,7 @@ export function Budgets() {
     const [budgetsRes, catsRes, txsRes, instsRes, prevBudgetsRes, prevTxsRes, prevInstsRes, mbRes, prevMbRes] = await Promise.all([
       supabase.from('budgets').select('*, category:categories(*)').eq('month', month).eq('year', year),
       supabase.from('categories').select('*').order('name'),
-      supabase.from('transactions').select('amount, type, category_id, is_installment_purchase').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
+      supabase.from('transactions').select('*, category:categories(*)').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
       supabase.from('installments').select('*, plan:installment_plans(*, credit_card:accounts(*))').gte('due_month', startOfMonth).lte('due_month', endOfMonth),
       // Prev month data
       supabase.from('budgets').select('*, category:categories(*)').eq('month', prevMonth).eq('year', prevYear),
@@ -105,24 +109,52 @@ export function Budgets() {
     }
 
     if (budgetsRes.data) {
-      const txs = txsRes.data || [];
+      const txs = (txsRes.data || []) as any[];
+      setAllMonthTransactions(txs);
+      const budgetMap = new Map((budgetsRes.data || []).map(b => [b.category_id, b]));
       
-      const enrichedBudgets = budgetsRes.data.map((b: any) => {
+      // Categories from transactions + installments
+      const txCategoryIds = new Set(txs.map(t => t.category_id));
+      currentInsts.forEach(i => {
+        const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
+        if (plan?.category_id) txCategoryIds.add(plan.category_id);
+      });
+
+      // Combine real budgets with "synthetic" ones for unbudgeted transactions
+      const allBudgetEntries = [...(budgetsRes.data || [])];
+      
+      txCategoryIds.forEach(catId => {
+        if (!budgetMap.has(catId) && catId) {
+          const category = catsRes.data?.find(c => c.id === catId);
+          if (category) {
+            allBudgetEntries.push({
+              id: `synthetic-${catId}`,
+              category_id: catId,
+              amount: 0,
+              spent: 0,
+              month,
+              year,
+              details: [],
+              category: category as any,
+              is_synthetic: true // flag for UI
+            });
+          }
+        }
+      });
+
+      const enrichedBudgets = allBudgetEntries.map((b: any) => {
         let dynamicSpent = 0;
         const isIncome = b.category?.type === 'income';
 
         if (isIncome) {
-          // Sum income transactions for this category
           dynamicSpent += txs
             .filter(t => t.type === 'income' && t.category_id === b.category_id)
             .reduce((sum, t) => sum + Number(t.amount), 0);
         } else {
-          // Sum expense transactions (excluding master installment purchases)
           dynamicSpent += txs
             .filter(t => t.type === 'expense' && !t.is_installment_purchase && (b.category_id ? t.category_id === b.category_id : true))
             .reduce((sum, t) => sum + Number(t.amount), 0);
           
-          // Add installments for this category
           const categoryInsts = currentInsts.filter(i => {
             const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
             return plan?.category_id === b.category_id;
@@ -132,7 +164,7 @@ export function Budgets() {
         return { ...b, spent: dynamicSpent };
       });
 
-      const sortedBudgets = (enrichedBudgets as Budget[]).sort((a, b) => {
+      const sortedBudgets = (enrichedBudgets as any[]).sort((a, b) => {
         const nameA = a.category?.name || 'Z General';
         const nameB = b.category?.name || 'Z General';
         return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
@@ -156,16 +188,20 @@ export function Budgets() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const totalAmount = conceptLines.reduce((sum, line) => sum + (parseFloat(line.amount) || 0), 0) || parseFloat(form.amount) || 0;
+    
     const { error } = await supabase.from('budgets').insert({
       user_id: user!.id,
       category_id: form.category_id || null,
       month,
       year,
-      amount: parseFloat(form.amount) || 0,
+      amount: totalAmount,
+      details: conceptLines.filter(l => l.concept && l.amount) as any
     });
     if (!error) {
       setShowForm(false);
       setForm({ category_id: '', amount: '' });
+      setConceptLines([]);
       loadData();
     }
   }
@@ -199,12 +235,21 @@ export function Budgets() {
   }
 
   async function handleUpdateBudget(id: string) {
-    const newAmount = parseFloat(editingBudgetAmount);
-    if (isNaN(newAmount) || newAmount < 0) return;
-    const { error } = await supabase.from('budgets').update({ amount: newAmount }).eq('id', id);
+    const totalAmount = conceptLines.length > 0 
+      ? conceptLines.reduce((sum, line) => sum + (parseFloat(line.amount) || 0), 0)
+      : parseFloat(editingBudgetAmount);
+
+    if (isNaN(totalAmount) || totalAmount < 0) return;
+    
+    const { error } = await supabase.from('budgets').update({ 
+      amount: totalAmount,
+      details: conceptLines.filter(l => l.concept && l.amount) as any
+    }).eq('id', id);
+    
     if (!error) {
       setEditingBudgetId(null);
       setEditingBudgetAmount('');
+      setConceptLines([]);
       loadData();
     }
   }
@@ -212,11 +257,16 @@ export function Budgets() {
   function startEditBudget(budget: Budget) {
     setEditingBudgetId(budget.id);
     setEditingBudgetAmount(String(budget.amount));
+    setConceptLines(budget.details?.map(d => ({ concept: d.concept, amount: String(d.amount) })) || []);
+    setShowForm(true); // Open the same modal for editing too for concept management
+    setForm({ category_id: budget.category_id || '', amount: String(budget.amount) });
   }
 
   function cancelEditBudget() {
     setEditingBudgetId(null);
     setEditingBudgetAmount('');
+    setConceptLines([]);
+    setForm({ category_id: '', amount: '' });
   }
 
   async function handleCopyToNextMonth() {
@@ -482,71 +532,95 @@ export function Budgets() {
                 {budgets.filter(b => b.category?.type === 'income').map((budget, idx, arr) => {
                   const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
                   const statusColor = pct >= 1 ? 'var(--success)' : pct > 0.5 ? 'var(--warning)' : 'var(--text-muted)';
+                  const isExpanded = expandedBudgets.has(budget.id);
+                  const hasDetails = budget.details && budget.details.length > 0;
                   
                   return (
-                    <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 100px 100px 60px 70px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
-                      <div className="budget-row-main">
-                        <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span>{budget.category?.icon || '💰'}</span>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{budget.category?.name}</span>
+                    <div key={budget.id} style={{ borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                      <div 
+                        className={`budget-table-row ${budget.is_synthetic ? 'synthetic' : ''}`} 
+                        style={{ gridTemplateColumns: '1fr 100px 100px 60px 70px', cursor: 'pointer' }}
+                        onClick={() => setSelectedCategoryDetail({ id: budget.category_id, name: budget.category?.name || 'General' })}
+                      >
+                        <div className="budget-row-main" style={{ position: 'relative' }}>
+                          <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {hasDetails && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = new Set(expandedBudgets);
+                                  if (next.has(budget.id)) next.delete(budget.id);
+                                  else next.add(budget.id);
+                                  setExpandedBudgets(next);
+                                }}
+                                className="btn btn-ghost"
+                                style={{ padding: 0, width: 20, height: 20, minHeight: 'auto' }}
+                              >
+                                {isExpanded ? '▼' : '▶'}
+                              </button>
+                            )}
+                            <span>{budget.category?.icon || '💰'}</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: budget.is_synthetic ? 'italic' : 'normal', opacity: budget.is_synthetic ? 0.7 : 1 }}>
+                              {budget.category?.name}
+                              {budget.is_synthetic && ' (No p.)'}
+                            </span>
+                          </div>
+                          <div className="mobile-only" style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
+                            {!budget.is_synthetic && (
+                              <>
+                                <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                                  <Edit2 size={13} color="var(--text-muted)" />
+                                </button>
+                                <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                                  <X size={13} color="var(--text-muted)" />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <div className="mobile-only" style={{ display: 'flex', gap: 4 }}>
-                          {editingBudgetId === budget.id ? (
-                            <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
-                          ) : (
-                            <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                              <Edit2 size={13} color="var(--text-muted)" />
-                            </button>
-                          )}
-                          <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                            <X size={13} color="var(--text-muted)" />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="budget-row-details">
-                        <div style={{ textAlign: 'right' }}>
-                          {editingBudgetId === budget.id ? (
-                            <input
-                              className="form-input"
-                              type="number"
-                              inputMode="numeric"
-                              value={editingBudgetAmount}
-                              onChange={e => setEditingBudgetAmount(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter') handleUpdateBudget(budget.id); if (e.key === 'Escape') cancelEditBudget(); }}
-                              autoFocus
-                              style={{ width: '100%', height: 28, fontSize: 12, padding: '2px 6px', textAlign: 'right' }}
-                            />
-                          ) : (
+                        
+                        <div className="budget-row-details">
+                          <div style={{ textAlign: 'right' }}>
                             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
-                          )}
-                        </div>
+                          </div>
 
-                        <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
-                          {formatMoney(Number(budget.spent))}
-                        </div>
+                          <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
+                            {formatMoney(Number(budget.spent))}
+                          </div>
 
-                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: statusColor }}>
-                          {Math.round(pct * 100)}%
-                        </div>
+                          <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: statusColor }}>
+                            {Math.round(pct * 100)}%
+                          </div>
 
-                        <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                          {editingBudgetId === budget.id ? (
-                            <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
-                          ) : (
-                            <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                              <Edit2 size={13} color="var(--text-muted)" />
-                            </button>
-                          )}
-                          <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                            <X size={13} color="var(--text-muted)" />
-                          </button>
+                          <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }} onClick={e => e.stopPropagation()}>
+                            {!budget.is_synthetic && (
+                              <>
+                                <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                                  <Edit2 size={13} color="var(--text-muted)" />
+                                </button>
+                                <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                                  <X size={13} color="var(--text-muted)" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ height: 2, background: 'var(--bg-elevated)', borderRadius: 1, marginTop: 4, gridColumn: '1 / -1', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${Math.min(pct * 100, 100)}%`, background: statusColor }} />
                         </div>
                       </div>
-                      {/* Tiny progress bar under the row */}
-                      <div style={{ height: 2, background: 'var(--bg-elevated)', borderRadius: 1, marginTop: 4, gridColumn: '1 / -1', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.min(pct * 100, 100)}%`, background: statusColor }} />
-                      </div>
+
+                      {/* Detail expansion */}
+                      {isExpanded && hasDetails && (
+                        <div style={{ background: 'var(--bg-elevated)', padding: '4px 12px 8px 36px', borderBottom: '1px solid var(--border-subtle)' }}>
+                          {budget.details?.map((detail, dIdx) => (
+                            <div key={dIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', padding: '4px 0', borderBottom: dIdx === (budget.details?.length || 0) -1 ? 'none' : '1px dashed var(--border-subtle)' }}>
+                              <span>{detail.concept}</span>
+                              <span style={{ fontWeight: 600 }}>{formatMoney(detail.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -565,95 +639,118 @@ export function Budgets() {
                 <div style={{ textAlign: 'center' }}>%</div>
                 <div style={{ width: 55 }}></div>
               </div>
-              {budgets.filter(b => b.category?.type !== 'income').map((budget, idx, arr) => {
-                const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
-                const statusColor = pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)';
-                
-                return (
-                  <div key={budget.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 100px 100px 60px 70px', borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
-                    <div className="budget-row-main">
-                      <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>{budget.category?.icon || '📦'}</span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{budget.category?.name || 'General'}</span>
-                      </div>
-                      <div className="mobile-only" style={{ display: 'flex', gap: 4 }}>
-                         {editingBudgetId === budget.id ? (
-                          <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
-                        ) : (
-                          <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                            <Edit2 size={13} color="var(--text-muted)" />
-                          </button>
-                        )}
-                        <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                          <X size={13} color="var(--text-muted)" />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="budget-row-details">
-                      <div style={{ textAlign: 'right' }}>
-                        {editingBudgetId === budget.id ? (
-                          <input
-                            className="form-input"
-                            type="number"
-                            inputMode="numeric"
-                            value={editingBudgetAmount}
-                            onChange={e => setEditingBudgetAmount(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') handleUpdateBudget(budget.id); if (e.key === 'Escape') cancelEditBudget(); }}
-                            autoFocus
-                            style={{ width: '100%', height: 28, fontSize: 12, padding: '2px 6px', textAlign: 'right' }}
-                          />
-                        ) : (
-                          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
-                        )}
+                {budgets.filter(b => b.category?.type !== 'income').map((budget, idx, arr) => {
+                  const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
+                  const statusColor = pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)';
+                  const isExpanded = expandedBudgets.has(budget.id);
+                  const hasDetails = budget.details && budget.details.length > 0;
+                  
+                  return (
+                    <div key={budget.id} style={{ borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                      <div 
+                        className={`budget-table-row ${budget.is_synthetic ? 'synthetic' : ''}`} 
+                        style={{ gridTemplateColumns: '1fr 100px 100px 60px 70px', cursor: 'pointer' }}
+                        onClick={() => setSelectedCategoryDetail({ id: budget.category_id, name: budget.category?.name || 'General' })}
+                      >
+                        <div className="budget-row-main">
+                          <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {hasDetails && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = new Set(expandedBudgets);
+                                  if (next.has(budget.id)) next.delete(budget.id);
+                                  else next.add(budget.id);
+                                  setExpandedBudgets(next);
+                                }}
+                                className="btn btn-ghost"
+                                style={{ padding: 0, width: 20, height: 20, minHeight: 'auto' }}
+                              >
+                                {isExpanded ? '▼' : '▶'}
+                              </button>
+                            )}
+                            <span>{budget.category?.icon || '📦'}</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: budget.is_synthetic ? 'italic' : 'normal', opacity: budget.is_synthetic ? 0.7 : 1 }}>
+                              {budget.category?.name || 'General'}
+                              {budget.is_synthetic && ' (No p.)'}
+                            </span>
+                          </div>
+                          <div className="mobile-only" style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
+                            {!budget.is_synthetic && (
+                              <>
+                                <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                                  <Edit2 size={13} color="var(--text-muted)" />
+                                </button>
+                                <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                                  <X size={13} color="var(--text-muted)" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="budget-row-details">
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
+                          </div>
+
+                          <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: pct > 1 ? 'var(--danger)' : 'var(--text-primary)' }}>
+                            {formatMoney(Number(budget.spent))}
+                          </div>
+
+                          <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: statusColor }}>
+                            {Math.round(pct * 100)}%
+                          </div>
+
+                          <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }} onClick={e => e.stopPropagation()}>
+                            {!budget.is_synthetic && (
+                              <>
+                                <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                                  <Edit2 size={13} color="var(--text-muted)" />
+                                </button>
+                                <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
+                                  <X size={13} color="var(--text-muted)" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ height: 2, background: 'var(--bg-elevated)', borderRadius: 1, marginTop: 4, gridColumn: '1 / -1', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${Math.min(pct * 100, 100)}%`, background: statusColor }} />
+                        </div>
                       </div>
 
-                      <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: pct > 1 ? 'var(--danger)' : 'var(--text-primary)' }}>
-                        {formatMoney(Number(budget.spent))}
-                      </div>
-
-                      <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: statusColor }}>
-                        {Math.round(pct * 100)}%
-                      </div>
-
-                      <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                        {editingBudgetId === budget.id ? (
-                          <button onClick={() => handleUpdateBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--success)' }}>✓</button>
-                        ) : (
-                          <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                            <Edit2 size={13} color="var(--text-muted)" />
-                          </button>
-                        )}
-                        <button onClick={() => deleteBudget(budget.id)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
-                          <X size={13} color="var(--text-muted)" />
-                        </button>
-                      </div>
+                      {isExpanded && hasDetails && (
+                        <div style={{ background: 'var(--bg-elevated)', padding: '4px 12px 8px 36px', borderBottom: '1px solid var(--border-subtle)' }}>
+                          {budget.details?.map((detail, dIdx) => (
+                            <div key={dIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', padding: '4px 0', borderBottom: dIdx === (budget.details?.length || 0) - 1 ? 'none' : '1px dashed var(--border-subtle)' }}>
+                              <span>{detail.concept}</span>
+                              <span style={{ fontWeight: 600 }}>{formatMoney(detail.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {/* Tiny progress bar under the row - visible on both */}
-                    <div style={{ height: 2, background: 'var(--bg-elevated)', borderRadius: 1, marginTop: 4, gridColumn: '1 / -1', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${Math.min(pct * 100, 100)}%`, background: statusColor }} />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
         </div>
       )}
 
-      {/* New Budget Modal */}
+      {/* New/Edit Budget Modal */}
       {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
+        <div className="modal-overlay" onClick={() => { setShowForm(false); cancelEditBudget(); }}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-handle" />
             <div className="modal-header">
-              <h2 className="modal-title">Nuevo Presupuesto</h2>
-              <button className="modal-close" onClick={() => setShowForm(false)}><X size={18} /></button>
+              <h2 className="modal-title">{editingBudgetId ? 'Editar' : 'Nuevo'} Presupuesto</h2>
+              <button className="modal-close" onClick={() => { setShowForm(false); cancelEditBudget(); }}><X size={18} /></button>
             </div>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 16 }}>
               {monthNames[month - 1]} {year}
             </p>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={editingBudgetId ? (e) => { e.preventDefault(); handleUpdateBudget(editingBudgetId); } : handleSubmit}>
               <div style={{ marginBottom: 12 }}>
                 <CompactSelector
                   label="Categoría"
@@ -662,14 +759,133 @@ export function Budgets() {
                   onChange={id => setForm({ ...form, category_id: id })}
                   placeholder="Presupuesto General"
                   variant="grid"
+                  disabled={!!editingBudgetId}
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Monto Máximo</label>
-                <input className="form-input" type="number" inputMode="numeric" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="50000" required />
+              
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Desglose de Conceptos (Opcional)</label>
+                  <button type="button" className="btn btn-ghost" style={{ padding: '0 8px', fontSize: 12, height: 24 }} onClick={() => setConceptLines([...conceptLines, { concept: '', amount: '' }])}>
+                    + Agregar ítem
+                  </button>
+                </div>
+                
+                {conceptLines.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {conceptLines.map((line, idx) => (
+                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 32px', gap: 8, alignItems: 'center' }}>
+                        <input
+                          className="form-input"
+                          style={{ height: 32, fontSize: 13 }}
+                          placeholder="Ej: Internet"
+                          value={line.concept}
+                          onChange={e => {
+                            const newLines = [...conceptLines];
+                            newLines[idx].concept = e.target.value;
+                            setConceptLines(newLines);
+                          }}
+                        />
+                        <input
+                          className="form-input"
+                          style={{ height: 32, fontSize: 13, textAlign: 'right' }}
+                          type="number"
+                          placeholder="0"
+                          value={line.amount}
+                          onChange={e => {
+                            const newLines = [...conceptLines];
+                            newLines[idx].amount = e.target.value;
+                            setConceptLines(newLines);
+                          }}
+                        />
+                        <button type="button" onClick={() => setConceptLines(conceptLines.filter((_, i) => i !== idx))} className="btn btn-ghost" style={{ color: 'var(--danger)', padding: 0, height: 32 }}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <div style={{ textAlign: 'right', marginTop: 8, fontSize: 14, fontWeight: 700, color: 'var(--primary-500)' }}>
+                      Total: {formatMoney(conceptLines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="form-group">
+                    <label className="form-label">Monto Global</label>
+                    <input className="form-input" type="number" inputMode="numeric" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="50000" required={conceptLines.length === 0} />
+                  </div>
+                )}
               </div>
-              <button type="submit" className="btn btn-primary btn-block btn-lg">Crear Presupuesto</button>
+              
+              <button type="submit" className="btn btn-primary btn-block btn-lg">
+                {editingBudgetId ? 'Guardar Cambios' : 'Crear Presupuesto'}
+              </button>
+              {editingBudgetId && (
+                <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 8, color: 'var(--danger)' }} onClick={() => { deleteBudget(editingBudgetId); setShowForm(false); }}>
+                  Eliminar Presupuesto
+                </button>
+              )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Detail Modal */}
+      {selectedCategoryDetail && (
+        <div className="modal-overlay" onClick={() => setSelectedCategoryDetail(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-handle" />
+            <div className="modal-header">
+              <h2 className="modal-title">Movimientos: {selectedCategoryDetail.name}</h2>
+              <button className="modal-close" onClick={() => setSelectedCategoryDetail(null)}><X size={18} /></button>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+              {(() => {
+                const txs = allMonthTransactions.filter(t => t.category_id === selectedCategoryDetail.id);
+                const insts = monthInstallments.filter(i => {
+                  const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
+                  return plan?.category_id === selectedCategoryDetail.id;
+                });
+                
+                if (txs.length === 0 && insts.length === 0) {
+                  return <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>Sin movimientos en este período</div>;
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {[...txs, ...insts]
+                      .sort((a, b) => {
+                        const dateA = a.transaction_date || a.due_month;
+                        const dateB = b.transaction_date || b.due_month;
+                        return dateB.localeCompare(dateA);
+                      })
+                      .map((item, idx) => {
+                        const isInst = !!item.due_month;
+                        const description = isInst ? (item.plan?.description || 'Cuota de tarjeta') : (item.description || 'Sin descripción');
+                        const date = isInst ? item.due_month : item.transaction_date;
+                        const amount = Number(item.amount);
+                        const type = isInst ? 'expense' : item.type;
+                        
+                        return (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500 }}>{description}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                {new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                {isInst && ` · Cuota ${item.installment_number}/${item.plan?.installment_count}`}
+                                {!isInst && item.account && ` · ${item.account.name}`}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: type === 'income' ? 'var(--success)' : 'var(--danger)' }}>
+                              {type === 'income' ? '+' : '-'}{formatMoney(amount)}
+                            </div>
+                          </div>
+                        );
+                      })
+                    }
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
