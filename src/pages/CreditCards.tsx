@@ -131,7 +131,7 @@ export function CreditCards() {
       due_date: statementForm.due_date,
       total_amount: parseFloat(statementForm.total_amount) || 0,
       minimum_payment: parseFloat(statementForm.minimum_payment) || 0,
-      status: 'open',
+      status: 'pending',
     });
 
     if (!error) {
@@ -144,6 +144,9 @@ export function CreditCards() {
         minimum_payment: '',
       });
       loadData();
+    } else {
+      alert('Error al guardar el resumen: ' + error.message);
+      console.error(error);
     }
   }
 
@@ -182,7 +185,7 @@ export function CreditCards() {
     }
 
     // 2. Update statement status
-    const newStatus = paidAmount >= statement.total_amount ? 'paid' : 'partial';
+    const newStatus = paidAmount >= statement.total_amount ? 'paid' : 'pending';
     await supabase.from('credit_card_statements').update({
       status: newStatus,
       paid_amount: (statement.paid_amount || 0) + paidAmount,

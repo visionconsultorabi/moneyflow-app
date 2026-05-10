@@ -97,23 +97,60 @@ export function Transactions() {
     if (!editingTx) return;
     setSavingEdit(true);
 
+    const newAmount = parseFloat(editForm.amount);
+    const newDescription = editForm.description;
+
     const { error } = await supabase.from('transactions').update({
-      amount: parseFloat(editForm.amount),
-      description: editForm.description,
+      amount: newAmount,
+      description: newDescription,
       transaction_date: editForm.transaction_date,
       account_id: editForm.account_id,
       category_id: editingTx.type !== 'transfer' ? (editForm.category_id || null) : null,
       to_account_id: editingTx.type === 'transfer' ? (editForm.to_account_id || null) : null,
     }).eq('id', editingTx.id);
 
-    setSavingEdit(false);
-    
     if (error) {
+      setSavingEdit(false);
       alert('Error al guardar: ' + error.message);
-    } else {
-      setEditingTx(null);
-      loadTransactions();
+      return;
     }
+
+    // If the transaction has installments, propagate amount/description changes
+    if (editingTx.is_installment_purchase && editingTx.installment_plan_id) {
+      const plan = editingTx.installment_plan;
+      const installmentCount = plan?.installment_count || 1;
+      const oldAmount = editingTx.amount;
+
+      // Recalculate if amount or description changed
+      const amountChanged = newAmount !== Number(oldAmount);
+      const descChanged = newDescription !== (plan?.description ?? '');
+
+      if (amountChanged || descChanged) {
+        const newInstallmentAmount = Math.ceil(newAmount / installmentCount);
+        const newFinancingCost = plan?.interest_rate && plan.interest_rate > 0
+          ? newInstallmentAmount * installmentCount - newAmount
+          : 0;
+
+        // Update the installment plan
+        await supabase.from('installment_plans').update({
+          total_amount: newAmount,
+          installment_amount: newInstallmentAmount,
+          financing_cost: newFinancingCost,
+          description: newDescription,
+        }).eq('id', editingTx.installment_plan_id);
+
+        // Update all individual installment amounts
+        if (amountChanged) {
+          await supabase.from('installments').update({
+            amount: newInstallmentAmount,
+          }).eq('installment_plan_id', editingTx.installment_plan_id);
+        }
+      }
+    }
+
+    setSavingEdit(false);
+    setEditingTx(null);
+    loadTransactions();
   }
 
   async function deleteTransaction(id: string) {
