@@ -241,16 +241,34 @@ export function Budgets() {
 
     if (isNaN(totalAmount) || totalAmount < 0) return;
     
-    const { error } = await supabase.from('budgets').update({ 
-      amount: totalAmount,
-      details: conceptLines.filter(l => l.concept && l.amount) as any
-    }).eq('id', id);
+    let error;
+
+    if (id.startsWith('synthetic-')) {
+      const categoryId = id.replace('synthetic-', '');
+      const res = await supabase.from('budgets').insert({
+        user_id: user!.id,
+        category_id: categoryId,
+        month,
+        year,
+        amount: totalAmount,
+        details: conceptLines.filter(l => l.concept && l.amount) as any
+      });
+      error = res.error;
+    } else {
+      const res = await supabase.from('budgets').update({ 
+        amount: totalAmount,
+        details: conceptLines.filter(l => l.concept && l.amount) as any
+      }).eq('id', id);
+      error = res.error;
+    }
     
     if (!error) {
       setEditingBudgetId(null);
       setEditingBudgetAmount('');
       setConceptLines([]);
       loadData();
+    } else {
+      alert('Error al guardar el presupuesto: ' + error.message);
     }
   }
 
@@ -565,7 +583,11 @@ export function Budgets() {
                             </span>
                           </div>
                           <div className="mobile-only" style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                            {!budget.is_synthetic && (
+                            {budget.is_synthetic ? (
+                              <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--primary-500)' }} title="Agregar Presupuesto">
+                                <Edit2 size={13} />
+                              </button>
+                            ) : (
                               <>
                                 <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
                                   <Edit2 size={13} color="var(--text-muted)" />
@@ -592,7 +614,11 @@ export function Budgets() {
                           </div>
 
                           <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }} onClick={e => e.stopPropagation()}>
-                            {!budget.is_synthetic && (
+                            {budget.is_synthetic ? (
+                              <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--primary-500)' }} title="Agregar Presupuesto">
+                                <Edit2 size={13} />
+                              </button>
+                            ) : (
                               <>
                                 <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
                                   <Edit2 size={13} color="var(--text-muted)" />
@@ -674,7 +700,11 @@ export function Budgets() {
                             </span>
                           </div>
                           <div className="mobile-only" style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                            {!budget.is_synthetic && (
+                            {budget.is_synthetic ? (
+                              <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--primary-500)' }} title="Agregar Presupuesto">
+                                <Edit2 size={13} />
+                              </button>
+                            ) : (
                               <>
                                 <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
                                   <Edit2 size={13} color="var(--text-muted)" />
@@ -701,7 +731,11 @@ export function Budgets() {
                           </div>
 
                           <div className="desktop-only" style={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }} onClick={e => e.stopPropagation()}>
-                            {!budget.is_synthetic && (
+                            {budget.is_synthetic ? (
+                              <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto', color: 'var(--primary-500)' }} title="Agregar Presupuesto">
+                                <Edit2 size={13} />
+                              </button>
+                            ) : (
                               <>
                                 <button onClick={() => startEditBudget(budget)} className="btn btn-ghost" style={{ padding: 4, minHeight: 'auto' }}>
                                   <Edit2 size={13} color="var(--text-muted)" />
