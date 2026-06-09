@@ -376,6 +376,7 @@ export function NewTransaction() {
               onChange={id => setForm({ ...form, category_id: id })}
               placeholder="Sin categoría"
               variant="grid"
+              hideIcons
             />
           )}
         </div>

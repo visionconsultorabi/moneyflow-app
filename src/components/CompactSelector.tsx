@@ -16,6 +16,7 @@ interface CompactSelectorProps {
   placeholder?: string;
   variant?: 'grid' | 'list';
   disabled?: boolean;
+  hideIcons?: boolean;
 }
 
 export const CompactSelector: React.FC<CompactSelectorProps> = ({
@@ -25,7 +26,8 @@ export const CompactSelector: React.FC<CompactSelectorProps> = ({
   onChange,
   placeholder = 'Seleccionar...',
   variant = 'list',
-  disabled = false
+  disabled = false,
+  hideIcons = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find(o => o.id === selectedId);
@@ -77,7 +79,7 @@ export const CompactSelector: React.FC<CompactSelectorProps> = ({
                   className={`selection-item ${variant === 'list' ? 'selection-item-list' : ''} ${selectedId === option.id ? 'selected' : ''}`}
                   onClick={() => handleSelect(option.id)}
                 >
-                  {option.icon && <span className="selection-item-icon">{option.icon}</span>}
+                  {!hideIcons && option.icon && <span className="selection-item-icon">{option.icon}</span>}
                   <span className="selection-item-name">{option.name}</span>
                 </div>
               ))}
