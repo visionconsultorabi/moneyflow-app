@@ -95,8 +95,9 @@ export function NewTransaction() {
     }
   }
 
-  function getFirstInstallmentMonth() {
-    const txDate = new Date(form.transaction_date);
+  function getFirstInstallmentMonthStr() {
+    const txDateStr = form.transaction_date;
+    const [year, month, day] = txDateStr.split('-').map(Number);
     
     // Check if we have a statement for this card
     const cardStatements = statements.filter(s => s.credit_card_id === form.credit_card_id);
@@ -104,23 +105,33 @@ export function NewTransaction() {
     // Find the statement that covers this transaction date or is the next one
     const activeStatement = cardStatements
       .sort((a, b) => a.close_date.localeCompare(b.close_date))
-      .find(s => new Date(s.close_date) >= txDate);
+      .find(s => s.close_date >= txDateStr);
 
     if (activeStatement) {
-      // Use the statement_month as the first installment month
-      const [y, m] = activeStatement.statement_month.split('-').map(Number);
-      return new Date(y, m - 1, 1);
+      return activeStatement.statement_month;
     }
 
     // Fallback to legacy logic
+    let targetYear = year;
+    let targetMonth = month; // 1-indexed
+
     if (selectedCard?.billing_close_day) {
       const closeDay = selectedCard.billing_close_day;
-      const txDay = txDate.getDate();
-      if (txDay > closeDay) {
-        return new Date(txDate.getFullYear(), txDate.getMonth() + 2, 1);
+      if (day > closeDay) {
+        targetMonth += 2;
+      } else {
+        targetMonth += 1;
       }
+    } else {
+      targetMonth += 1;
     }
-    return new Date(txDate.getFullYear(), txDate.getMonth() + 1, 1);
+
+    if (targetMonth > 12) {
+      targetYear += Math.floor((targetMonth - 1) / 12);
+      targetMonth = ((targetMonth - 1) % 12) + 1;
+    }
+
+    return `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -130,10 +141,11 @@ export function NewTransaction() {
 
     try {
       const accountId = isCreditCard ? form.credit_card_id : form.account_id;
+      const defaultDesc = form.description || (form.type === 'transfer' ? `Transferencia a ${accounts.find(a => a.id === form.to_account_id)?.name || 'Cuenta'}` : '');
 
       if (isCreditCard) {
         // Create installment purchase
-        const firstMonth = getFirstInstallmentMonth();
+        const firstMonthStr = getFirstInstallmentMonthStr();
 
         // 1. Create installment plan first (without transaction_id)
         const { data: planData, error: planError } = await supabase.from('installment_plans').insert({
@@ -144,8 +156,8 @@ export function NewTransaction() {
           installment_amount: installmentAmount,
           interest_rate: form.has_interest ? rate : 0,
           financing_cost: financingCost,
-          first_installment_month: firstMonth.toISOString().split('T')[0],
-          description: form.description,
+          first_installment_month: firstMonthStr,
+          description: defaultDesc,
           category_id: form.category_id || null,
           status: 'active',
         }).select().single();
@@ -154,13 +166,20 @@ export function NewTransaction() {
 
         // 2. Create N individual installments
         const installments = [];
+        const [firstY, firstM] = firstMonthStr.split('-').map(Number);
         for (let i = 0; i < form.installment_count; i++) {
-          const dueMonth = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + i, 1);
+          let dueM = firstM + i;
+          let dueY = firstY;
+          if (dueM > 12) {
+            dueY += Math.floor((dueM - 1) / 12);
+            dueM = ((dueM - 1) % 12) + 1;
+          }
+          const dueMonthStr = `${dueY}-${dueM.toString().padStart(2, '0')}-01`;
           installments.push({
             installment_plan_id: planData.id,
             installment_number: i + 1,
             amount: installmentAmount,
-            due_month: dueMonth.toISOString().split('T')[0],
+            due_month: dueMonthStr,
             status: 'pending',
           });
         }
@@ -175,7 +194,7 @@ export function NewTransaction() {
           type: form.type,
           amount: amount,
           category_id: form.type !== 'transfer' ? (form.category_id || null) : null,
-          description: form.description,
+          description: defaultDesc,
           transaction_date: form.transaction_date,
           payment_method: form.type === 'transfer' ? 'transfer' : 'credit',
           to_account_id: form.type === 'transfer' ? form.to_account_id : null,
@@ -196,7 +215,7 @@ export function NewTransaction() {
           type: form.type,
           amount: amount,
           category_id: form.type !== 'transfer' ? (form.category_id || null) : null,
-          description: form.description,
+          description: defaultDesc,
           transaction_date: form.transaction_date,
           payment_method: form.type === 'transfer' ? 'transfer' : form.payment_method,
           to_account_id: form.type === 'transfer' ? form.to_account_id || null : null,

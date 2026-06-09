@@ -49,7 +49,7 @@ export const CompactSelector: React.FC<CompactSelectorProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
           {selectedOption ? (
             <>
-              {selectedOption.icon && <span style={{ fontSize: 16 }}>{selectedOption.icon}</span>}
+              {!hideIcons && selectedOption.icon && <span style={{ fontSize: 16 }}>{selectedOption.icon}</span>}
               <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                 {selectedOption.name}
               </span>
