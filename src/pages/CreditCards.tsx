@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Account, InstallmentPlan, CreditCardStatement } from '../types/database';
 import { Plus, X, CreditCard, Edit2, CheckCircle } from 'lucide-react';
 
-const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
+const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
 export function CreditCards() {
   const { user } = useAuth();
@@ -21,7 +21,7 @@ export function CreditCards() {
   const [form, setForm] = useState({
     name: '', institution: '', last_four_digits: '', credit_limit: '',
     billing_close_day: '25', payment_due_day: '10', interest_rate: '',
-    linked_account_id: '', color: '#8B5CF6',
+    linked_account_id: '', color: '#8B5CF6', currency: 'ARS',
   });
   const [statementForm, setStatementForm] = useState({
     statement_month: new Date().toISOString().slice(0, 7), // YYYY-MM
@@ -74,6 +74,7 @@ export function CreditCards() {
       linked_account_id: form.linked_account_id || null,
       last_four_digits: form.last_four_digits || null,
       color: form.color,
+      currency: form.currency,
     };
 
     if (editingId) {
@@ -81,7 +82,7 @@ export function CreditCards() {
       if (!error) {
         setEditingId(null);
         setShowForm(false);
-        setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6' });
+        setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6', currency: 'ARS' });
         loadData();
       }
     } else {
@@ -89,7 +90,6 @@ export function CreditCards() {
         ...payload,
         user_id: user!.id,
         account_type: 'credit_card',
-        currency: 'ARS',
         initial_balance: limit,
         current_balance: limit,
         icon: '',
@@ -97,7 +97,7 @@ export function CreditCards() {
       });
       if (!error) {
         setShowForm(false);
-        setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6' });
+        setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6', currency: 'ARS' });
         loadData();
       }
     }
@@ -114,6 +114,7 @@ export function CreditCards() {
       interest_rate: card.interest_rate?.toString() || '',
       linked_account_id: card.linked_account_id || '',
       color: card.color || '#8B5CF6',
+      currency: card.currency || 'ARS',
     });
     setEditingId(card.id);
     setShowForm(true);
@@ -300,7 +301,7 @@ export function CreditCards() {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{formatMoney(available)}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{formatMoney(available, card.currency)}</div>
                     <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>DISPONIBLE</div>
                   </div>
                 </div>
@@ -343,7 +344,7 @@ export function CreditCards() {
                             <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Cuota {inst.installment_number} de {plan?.installment_count}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontWeight: 600 }}>{formatMoney(Number(inst.amount))}</span>
+                            <span style={{ fontWeight: 600 }}>{formatMoney(Number(inst.amount), card.currency)}</span>
                             {inst.status === 'paid' && <CheckCircle size={12} color="var(--success)" />}
                           </div>
                         </div>
@@ -351,7 +352,7 @@ export function CreditCards() {
                     })}
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 8px 4px', borderTop: '1px solid var(--border-subtle)', marginTop: 4 }}>
                       <span style={{ fontSize: 11, fontWeight: 700 }}>SUBTOTAL TARJETA</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary-500)' }}>{formatMoney(cardMonthlyTotal)}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary-500)' }}>{formatMoney(cardMonthlyTotal, card.currency)}</span>
                     </div>
                     {statement && statement.status !== 'paid' && (
                       <button onClick={(e) => { e.stopPropagation(); setSelectedCard(card); handleRegisterPayment(statement); }} className="btn btn-primary btn-block" style={{ height: 32, minHeight: 32, fontSize: 12, marginTop: 8 }}>
@@ -378,23 +379,39 @@ export function CreditCards() {
           })}
 
           {/* Monthly Grand Total */}
-          <div className="card" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--primary-500)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>TOTAL CUOTAS DEL MES</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--primary-400)' }}>
-                  {formatMoney(cards.reduce((sum, card) => {
-                    const selectedMonthStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`;
-                    return sum + plans
-                      .filter(p => p.credit_card_id === card.id)
-                      .flatMap(p => (p.installments || []).filter(i => i.due_month === selectedMonthStr))
-                      .reduce((s, i) => s + Number(i.amount), 0);
-                  }, 0))}
+          {(() => {
+            const selectedMonthStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`;
+            const installmentTotalsByCurrency = cards.reduce((acc, card) => {
+              const cardInstallments = plans
+                .filter(p => p.credit_card_id === card.id)
+                .flatMap(p => (p.installments || []).filter(i => i.due_month === selectedMonthStr));
+              const total = cardInstallments.reduce((s, i) => s + Number(i.amount), 0);
+              if (total > 0) {
+                acc[card.currency || 'ARS'] = (acc[card.currency || 'ARS'] || 0) + total;
+              }
+              return acc;
+            }, {} as Record<string, number>);
+
+            return (
+              <div className="card" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--primary-500)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>TOTAL CUOTAS DEL MES</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--primary-400)' }}>
+                      {Object.keys(installmentTotalsByCurrency).length === 0 ? (
+                        formatMoney(0)
+                      ) : (
+                        Object.entries(installmentTotalsByCurrency).map(([curr, amount]) => (
+                          <div key={curr} style={{ fontSize: 20 }}>{formatMoney(amount, curr)}</div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <CreditCard size={32} color="var(--primary-500)" style={{ opacity: 0.5 }} />
                 </div>
               </div>
-              <CreditCard size={32} color="var(--primary-500)" style={{ opacity: 0.5 }} />
-            </div>
-          </div>
+            );
+          })()}
         </div>
       )}
 
@@ -405,7 +422,7 @@ export function CreditCards() {
             <div className="modal-handle" />
             <div className="modal-header">
               <h2 className="modal-title">{editingId ? 'Editar Tarjeta' : 'Nueva Tarjeta'}</h2>
-              <button className="modal-close" onClick={() => { setShowForm(false); setEditingId(null); setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6' }); }}><X size={18} /></button>
+              <button className="modal-close" onClick={() => { setShowForm(false); setEditingId(null); setForm({ name: '', institution: '', last_four_digits: '', credit_limit: '', billing_close_day: '25', payment_due_day: '10', interest_rate: '', linked_account_id: '', color: '#8B5CF6', currency: 'ARS' }); }}><X size={18} /></button>
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, padding: '0 4px' }}>
                Configurá los valores base. Podrás ajustar las fechas exactas de cada mes usando el botón "Configurar fechas" en la vista principal.
@@ -422,6 +439,14 @@ export function CreditCards() {
               <div className="form-group">
                 <label className="form-label">Últimos 4 dígitos</label>
                 <input className="form-input" value={form.last_four_digits} onChange={e => setForm({...form, last_four_digits: e.target.value})} placeholder="1234" maxLength={4} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Moneda</label>
+                <select className="form-select" value={form.currency} onChange={e => setForm({...form, currency: e.target.value})}>
+                  <option value="ARS">ARS - Peso Argentino</option>
+                  <option value="USD">USD - Dólar</option>
+                  <option value="EUR">EUR - Euro</option>
+                </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Límite de Crédito</label>

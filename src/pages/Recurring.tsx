@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import type { RecurringTransaction, Category, Account } from '../types/database';
 import { Plus, RefreshCw, X, Trash2 } from 'lucide-react';
 
-const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
+const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
 export function Recurring() {
   const { user } = useAuth();
@@ -96,7 +96,7 @@ export function Recurring() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div className={`transaction-amount ${rec.type}`} style={{ fontWeight: 500 }}>
-                  {formatMoney(Number(rec.amount))}
+                  {formatMoney(Number(rec.amount), rec.account?.currency)}
                 </div>
                 <button onClick={() => deleteRecurring(rec.id)} className="btn btn-ghost" style={{ padding: 4 }}>
                   <Trash2 size={16} color="var(--text-muted)" />

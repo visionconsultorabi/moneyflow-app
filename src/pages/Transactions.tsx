@@ -6,7 +6,7 @@ import type { Transaction, Account, Category } from '../types/database';
 import { Plus, Search, ArrowRightLeft, Trash2, X, Edit2 } from 'lucide-react';
 import { CompactSelector } from '../components/CompactSelector';
 
-const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
+const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
 export function Transactions() {
   const { user } = useAuth();
@@ -278,7 +278,7 @@ export function Transactions() {
                           Cuota {tx.installment_plan.installments?.find((i: any) => i.installment_number === 1)?.due_month.slice(0, 7) || 'N/A'} (1/{tx.installment_plan.installment_count})
                         </span>
                         <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                          Total: {formatMoney(tx.installment_plan.total_amount)}
+                          Total: {formatMoney(tx.installment_plan.total_amount, tx.account?.currency)}
                         </span>
                       </div>
                     )}
@@ -291,7 +291,7 @@ export function Transactions() {
                       
                       return (
                         <div className={`transaction-amount ${amountType}`} style={{ fontWeight: 500 }}>
-                          {sign}{formatMoney(Number(tx.amount))}
+                          {sign}{formatMoney(Number(tx.amount), tx.account?.currency)}
                         </div>
                       );
                     })()}

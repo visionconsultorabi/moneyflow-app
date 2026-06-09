@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Account } from '../types/database';
 import { Plus, X, Wallet, Edit2 } from 'lucide-react';
 
-const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
+const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
 const accountTypeLabels: Record<string, string> = {
   bank: 'Banco',
@@ -153,7 +153,7 @@ export function Accounts() {
                   </div>
                 </div>
                 <div className="account-balance" style={{ margin: 0, marginTop: 2, color: Number(account.current_balance) >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 500 }}>
-                  {formatMoney(Number(account.current_balance))}
+                  {formatMoney(Number(account.current_balance), account.currency)}
                 </div>
               </div>
               <div style={{ position: 'absolute', bottom: 4, right: 4, display: 'flex', gap: 4 }}>
