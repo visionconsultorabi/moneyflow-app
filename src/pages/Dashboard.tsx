@@ -112,6 +112,10 @@ export function Dashboard() {
   const monthExpenses = currentMonthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
   const monthIncome = currentMonthTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
 
+  const mainCurrency = Object.keys(totalsByCurrency)[0] || primaryCurrency;
+  const currentTotalBalance = totalsByCurrency[mainCurrency] || 0;
+  const initialBalance = currentTotalBalance - monthIncome + monthExpenses;
+
   // Generate Alerts
   const todayDate = new Date().getDate();
   const alerts: { title: string, description: string, type: 'warning' | 'danger' }[] = [];
@@ -187,7 +191,11 @@ export function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="stats-grid">
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))' }}>
+        <div className="stat-card">
+          <div className="stat-label">Saldo Inicial</div>
+          <div className="stat-value">{showBalances ? formatMoney(initialBalance) : '****'}</div>
+        </div>
         <div className="stat-card">
           <div className="stat-label">Ingresos</div>
           <div className="stat-value positive">{showBalances ? formatMoney(monthIncome) : '****'}</div>
@@ -195,14 +203,6 @@ export function Dashboard() {
         <div className="stat-card">
           <div className="stat-label">Gastos</div>
           <div className="stat-value negative">{showBalances ? formatMoney(monthExpenses) : '****'}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Tarjetas</div>
-          <div className="stat-value">{creditCards.length}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Cuotas Mes</div>
-          <div className="stat-value negative">{showBalances ? formatMoney(totalInstallmentsThisMonth) : '****'}</div>
         </div>
       </div>
 
