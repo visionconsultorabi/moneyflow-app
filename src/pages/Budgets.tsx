@@ -266,6 +266,8 @@ export function Budgets() {
       setEditingBudgetId(null);
       setEditingBudgetAmount('');
       setConceptLines([]);
+      setShowForm(false);
+      setForm({ category_id: '', amount: '' });
       loadData();
     } else {
       alert('Error al guardar el presupuesto: ' + error.message);
