@@ -19,7 +19,6 @@ export function Budgets() {
 
   const [form, setForm] = useState({ category_id: '', amount: '' });
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
-  const [editingBudgetAmount, setEditingBudgetAmount] = useState('');
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryForm, setCategoryForm] = useState<{name: string, icon: string, type: 'income' | 'expense'}>({ name: '', icon: '📦', type: 'expense' });
@@ -264,7 +263,6 @@ export function Budgets() {
     
     if (!error) {
       setEditingBudgetId(null);
-      setEditingBudgetAmount('');
       setConceptLines([]);
       setShowForm(false);
       setForm({ category_id: '', amount: '' });
@@ -276,7 +274,6 @@ export function Budgets() {
 
   function startEditBudget(budget: Budget) {
     setEditingBudgetId(budget.id);
-    setEditingBudgetAmount(String(budget.amount));
     setConceptLines(budget.details?.map(d => ({ concept: d.concept, amount: String(d.amount) })) || []);
     setShowForm(true); // Open the same modal for editing too for concept management
     setForm({ category_id: budget.category_id || '', amount: String(budget.amount) });
@@ -284,7 +281,6 @@ export function Budgets() {
 
   function cancelEditBudget() {
     setEditingBudgetId(null);
-    setEditingBudgetAmount('');
     setConceptLines([]);
     setForm({ category_id: '', amount: '' });
   }
