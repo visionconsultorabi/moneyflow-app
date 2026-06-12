@@ -57,6 +57,9 @@ export interface Transaction {
   tags: string[] | null;
   notes: string | null;
   created_at: string;
+  currency?: string;
+  foreign_amount?: number;
+  to_amount?: number;
   // Joined fields
   category?: Category;
   account?: Account;
@@ -79,6 +82,8 @@ export interface InstallmentPlan {
   category_id: string | null;
   status: PlanStatus;
   created_at: string;
+  currency?: string;
+  foreign_amount?: number;
   // Joined
   credit_card?: Account;
   installments?: Installment[];

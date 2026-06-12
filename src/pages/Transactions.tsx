@@ -203,7 +203,7 @@ export function Transactions() {
           display: 'inline-flex', alignItems: 'center', gap: 8,
           background: 'var(--primary-alpha)', color: 'var(--primary)',
           padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
-          marginBottom: 16
+          marginBottom: 8
         }}>
           📋 Movimientos de: {accountName}
           <button onClick={clearAccountFilter} style={{
@@ -216,7 +216,7 @@ export function Transactions() {
       )}
 
       {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 16 }}>
+      <div style={{ position: 'relative', marginBottom: 12 }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
         <input
           type="search"

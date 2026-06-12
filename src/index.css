@@ -797,7 +797,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .page-title {
@@ -883,25 +883,25 @@ body {
 }
 
 .transaction-date-group {
-  margin-bottom: 20px;
+  margin-bottom: 8px;
 }
 
 .transaction-date-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
-  padding: 8px 0;
+  padding: 4px 0;
   border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .transaction-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 4px;
+  gap: 8px;
+  padding: 6px 4px;
   border-bottom: 1px solid var(--border-subtle);
   cursor: pointer;
   transition: background var(--transition-fast);
@@ -1512,7 +1512,7 @@ body {
   background: var(--bg-elevated);
   border-radius: var(--radius-full);
   padding: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .tab {
