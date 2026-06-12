@@ -180,10 +180,10 @@ export function Dashboard() {
 
       {/* Balance Card Section */}
       <div className="balance-card" style={{ marginBottom: 24 }}>
-        <div>
-          <div className="label">Balance Total</div>
+        <div style={{ padding: '16px' }}>
+          <div className="label" style={{ fontSize: 11, letterSpacing: '0.8px', opacity: 0.9 }}>BALANCE TOTAL</div>
           {Object.entries(totalsByCurrency).map(([curr, amount]) => (
-            <div key={curr} className="amount" style={{ fontSize: Object.keys(totalsByCurrency).length > 1 ? 24 : 30 }}>
+            <div key={curr} className="amount" style={{ fontSize: Object.keys(totalsByCurrency).length > 1 ? 20 : 26, fontWeight: 400, marginTop: 4 }}>
               {showBalances ? formatMoney(amount, curr) : '****'}
             </div>
           ))}
@@ -191,18 +191,18 @@ export function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-        <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="stat-label" style={{ marginBottom: 0 }}>Saldo Inicial</div>
-          <div className="stat-value">{showBalances ? formatMoney(initialBalance) : '****'}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+        <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
+          <div className="stat-label" style={{ marginBottom: 0, fontSize: 11, fontWeight: 500 }}>Saldo Inicial</div>
+          <div className="stat-value" style={{ fontSize: 15, fontWeight: 500 }}>{showBalances ? formatMoney(initialBalance) : '****'}</div>
         </div>
-        <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="stat-label" style={{ marginBottom: 0 }}>Ingresos</div>
-          <div className="stat-value positive">{showBalances ? formatMoney(monthIncome) : '****'}</div>
+        <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
+          <div className="stat-label" style={{ marginBottom: 0, fontSize: 11, fontWeight: 500 }}>Ingresos</div>
+          <div className="stat-value positive" style={{ fontSize: 15, fontWeight: 500 }}>{showBalances ? formatMoney(monthIncome) : '****'}</div>
         </div>
-        <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="stat-label" style={{ marginBottom: 0 }}>Gastos</div>
-          <div className="stat-value negative">{showBalances ? formatMoney(monthExpenses) : '****'}</div>
+        <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
+          <div className="stat-label" style={{ marginBottom: 0, fontSize: 11, fontWeight: 500 }}>Gastos</div>
+          <div className="stat-value negative" style={{ fontSize: 15, fontWeight: 500 }}>{showBalances ? formatMoney(monthExpenses) : '****'}</div>
         </div>
       </div>
 
