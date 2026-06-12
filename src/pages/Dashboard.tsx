@@ -191,10 +191,10 @@ export function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))' }}>
-        <div className="stat-card">
-          <div className="stat-label">Saldo Inicial</div>
-          <div className="stat-value">{showBalances ? formatMoney(initialBalance) : '****'}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
+        <div className="stat-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px 16px' }}>
+          <div className="stat-label" style={{ fontSize: 13, marginBottom: 8 }}>Saldo Inicial</div>
+          <div className="stat-value" style={{ fontSize: 24, fontWeight: 500 }}>{showBalances ? formatMoney(initialBalance) : '****'}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Ingresos</div>
