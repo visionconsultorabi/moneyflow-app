@@ -191,17 +191,17 @@ export function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
-        <div className="stat-card" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+        <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="stat-label" style={{ marginBottom: 0 }}>Saldo Inicial</div>
           <div className="stat-value">{showBalances ? formatMoney(initialBalance) : '****'}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Ingresos</div>
+        <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="stat-label" style={{ marginBottom: 0 }}>Ingresos</div>
           <div className="stat-value positive">{showBalances ? formatMoney(monthIncome) : '****'}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Gastos</div>
+        <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="stat-label" style={{ marginBottom: 0 }}>Gastos</div>
           <div className="stat-value negative">{showBalances ? formatMoney(monthExpenses) : '****'}</div>
         </div>
       </div>
