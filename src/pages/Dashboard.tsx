@@ -105,7 +105,7 @@ export function Dashboard() {
     return acc;
   }, {} as Record<string, number>);
 
-  const totalInstallmentsThisMonth = monthlyInstallments.filter(i => i.status === 'pending').reduce((sum, i) => sum + Number(i.amount), 0);
+
   // (Assuming installments are in primary currency ARS for simplicity in real-available calculation)
   const primaryCurrency = 'ARS';
 
