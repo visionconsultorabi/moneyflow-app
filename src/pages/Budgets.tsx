@@ -402,7 +402,7 @@ export function Budgets() {
 
       {/* Summary */}
       {(budgets.length > 0 || scheduledCardPayments > 0) && (
-        <div className="card" style={{ marginBottom: 24, padding: 20 }}>
+        <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
              <div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -437,7 +437,7 @@ export function Budgets() {
              </button>
           </div>
 
-          <div className="budget-summary-grid" style={{ display: 'grid', gap: 16, marginBottom: 20, borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
+          <div className="budget-summary-grid" style={{ display: 'grid', gap: 12, marginBottom: 16, borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>Ingresos (+{formatMoney(initialBalance)})</div>
@@ -449,7 +449,7 @@ export function Budgets() {
               </div>
             </div>
             
-            <div style={{ padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '10px 14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>Balance Proyectado</div>
                 <div style={{ fontSize: 17, fontWeight: 600, color: projectedBalance >= 0 ? 'var(--primary-500)' : 'var(--danger)', marginTop: 2 }}>{formatMoney(projectedBalance)}</div>

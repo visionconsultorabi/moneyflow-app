@@ -144,7 +144,7 @@ export function Accounts() {
       ) : (
         <div className="accounts-grid">
           {accounts.map(account => (
-            <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', padding: '16px 18px', cursor: 'pointer' }}>
+            <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ display: 'flex', flexDirection: 'column', gap: 8, position: 'relative', padding: '12px 14px', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div className="account-info">

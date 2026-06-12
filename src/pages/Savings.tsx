@@ -84,7 +84,7 @@ export function Savings() {
           {goals.map(goal => {
             const pct = Math.min(Math.round((Number(goal.current_amount) / Number(goal.target_amount)) * 100), 100);
             return (
-              <div key={goal.id} className="card" style={{ padding: 20 }}>
+              <div key={goal.id} className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div>

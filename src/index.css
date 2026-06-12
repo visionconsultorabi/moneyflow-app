@@ -82,10 +82,10 @@
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 
   /* Radii */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* Transitions */
@@ -522,7 +522,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 16px;
   transition: all var(--transition-normal);
 }
 
@@ -537,7 +537,7 @@ body {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 16px;
 }
 
 .balance-card {
@@ -601,13 +601,13 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+  background: var(--primary-500);
   color: white;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .btn-primary:hover {
-  box-shadow: var(--shadow-md), var(--shadow-glow);
+  background: var(--primary-600);
   transform: translateY(-1px);
 }
 
@@ -649,16 +649,16 @@ body {
 }
 
 .btn-lg {
-  padding: 14px 28px;
-  font-size: 16px;
-  min-height: 52px;
+  padding: 12px 24px;
+  font-size: 15px;
+  min-height: 48px;
 }
 
 @media (max-width: 767px) {
   .btn-lg {
-    padding: 10px 20px;
-    font-size: 14.5px;
-    min-height: 44px;
+    padding: 10px 18px;
+    font-size: 14px;
+    min-height: 42px;
   }
 }
 
@@ -781,7 +781,7 @@ body {
 }
 
 .section-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -801,7 +801,7 @@ body {
 }
 
 .page-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.5px;
