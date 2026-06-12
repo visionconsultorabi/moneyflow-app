@@ -179,11 +179,11 @@ export function Dashboard() {
       )}
 
       {/* Balance Card Section */}
-      <div className="balance-card" style={{ marginBottom: 24 }}>
-        <div style={{ padding: '16px' }}>
-          <div className="label" style={{ fontSize: 11, letterSpacing: '0.8px', opacity: 0.9 }}>BALANCE TOTAL</div>
+      <div className="balance-card" style={{ marginBottom: 16, padding: '16px 20px' }}>
+        <div>
+          <div className="label" style={{ fontSize: 10, letterSpacing: '1px', opacity: 0.9, marginBottom: 2 }}>BALANCE TOTAL</div>
           {Object.entries(totalsByCurrency).map(([curr, amount]) => (
-            <div key={curr} className="amount" style={{ fontSize: Object.keys(totalsByCurrency).length > 1 ? 20 : 26, fontWeight: 400, marginTop: 4 }}>
+            <div key={curr} className="amount" style={{ fontSize: Object.keys(totalsByCurrency).length > 1 ? 18 : 22, fontWeight: 400 }}>
               {showBalances ? formatMoney(amount, curr) : '****'}
             </div>
           ))}
