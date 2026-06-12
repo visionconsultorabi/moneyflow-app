@@ -237,7 +237,7 @@ export function Budgets() {
   async function handleUpdateBudget(id: string) {
     const totalAmount = conceptLines.length > 0 
       ? conceptLines.reduce((sum, line) => sum + (parseFloat(line.amount) || 0), 0)
-      : parseFloat(editingBudgetAmount);
+      : parseFloat(form.amount);
 
     if (isNaN(totalAmount) || totalAmount < 0) return;
     
