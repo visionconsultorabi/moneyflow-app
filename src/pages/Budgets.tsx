@@ -486,53 +486,6 @@ export function Budgets() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* Credit Card Section (Grouped Details) */}
-          {monthInstallments.length > 0 && (
-            <div>
-              <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10, letterSpacing: 0.5 }}>Pagos Automáticos (Cuotas)</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {Object.entries(
-                  monthInstallments.reduce((acc: any, inst: any) => {
-                    const cardName = inst.plan?.credit_card?.name || 'Otras Cuotas';
-                    if (!acc[cardName]) acc[cardName] = { items: [], total: 0 };
-                    acc[cardName].items.push(inst);
-                    acc[cardName].total += Number(inst.amount);
-                    return acc;
-                  }, {})
-                ).map(([cardName, group]: [string, any]) => (
-                  <div key={cardName} className="card" style={{ padding: '0 12px', borderLeft: '4px solid var(--primary-500)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>{cardName}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)' }}>Total: {formatMoney(group.total)}</span>
-                    </div>
-                    
-                    <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 70px 100px' }}>
-                      <div>Descripción</div>
-                      <div style={{ textAlign: 'center' }}>Cuota</div>
-                      <div style={{ textAlign: 'right' }}>Monto</div>
-                    </div>
-
-                    {group.items.map((inst: any, idx: number) => (
-                      <div key={inst.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 70px 100px', borderBottom: idx === group.items.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
-                        <div className="budget-row-main">
-                          <div style={{ fontWeight: 500, fontSize: 13 }}>{inst.plan?.description || inst.plan?.name}</div>
-                        </div>
-                        <div className="budget-row-details">
-                          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)' }}>
-                            {inst.installment_number}/{inst.plan?.installment_count || inst.plan?.total_installments}
-                          </div>
-                          <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                            {formatMoney(Number(inst.amount))}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Income Section */}
           {budgets.some(b => b.category?.type === 'income') && (
             <div>
@@ -765,6 +718,53 @@ export function Budgets() {
                 })}
             </div>
           </div>
+
+          {/* Credit Card Section (Grouped Details) */}
+          {monthInstallments.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10, letterSpacing: 0.5 }}>Pagos Automáticos (Cuotas)</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {Object.entries(
+                  monthInstallments.reduce((acc: any, inst: any) => {
+                    const cardName = inst.plan?.credit_card?.name || 'Otras Cuotas';
+                    if (!acc[cardName]) acc[cardName] = { items: [], total: 0 };
+                    acc[cardName].items.push(inst);
+                    acc[cardName].total += Number(inst.amount);
+                    return acc;
+                  }, {})
+                ).map(([cardName, group]: [string, any]) => (
+                  <div key={cardName} className="card" style={{ padding: '0 12px', borderLeft: '4px solid var(--primary-500)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>{cardName}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)' }}>Total: {formatMoney(group.total)}</span>
+                    </div>
+                    
+                    <div className="budget-table-header" style={{ gridTemplateColumns: '1fr 70px 100px' }}>
+                      <div>Descripción</div>
+                      <div style={{ textAlign: 'center' }}>Cuota</div>
+                      <div style={{ textAlign: 'right' }}>Monto</div>
+                    </div>
+
+                    {group.items.map((inst: any, idx: number) => (
+                      <div key={inst.id} className="budget-table-row" style={{ gridTemplateColumns: '1fr 70px 100px', borderBottom: idx === group.items.length - 1 ? 'none' : '1px solid var(--border-subtle)' }}>
+                        <div className="budget-row-main">
+                          <div style={{ fontWeight: 500, fontSize: 13 }}>{inst.plan?.description || inst.plan?.name}</div>
+                        </div>
+                        <div className="budget-row-details">
+                          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)' }}>
+                            {inst.installment_number}/{inst.plan?.installment_count || inst.plan?.total_installments}
+                          </div>
+                          <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {formatMoney(Number(inst.amount))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
