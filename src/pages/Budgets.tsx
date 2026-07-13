@@ -376,6 +376,17 @@ export function Budgets() {
   const projectedBalance = initialBalance + totalIncomeBudget - totalExpenseBudget;
   const actualBalance = initialBalance + totalIncomeActual - totalExpenseActual;
 
+  const modalManualAmount = conceptLines.length > 0 
+    ? conceptLines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0)
+    : (parseFloat(form.amount) || 0);
+
+  const modalCardInstsForCategory = monthInstallments.filter(i => {
+    const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
+    return plan?.category_id === form.category_id;
+  }).reduce((sum, i) => sum + Number(i.amount), 0);
+
+  const modalTotalBudgetForMonth = modalManualAmount + modalCardInstsForCategory;
+
   const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
   if (loading) return <div className="spinner" />;
@@ -864,7 +875,7 @@ export function Budgets() {
               
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <label className="form-label" style={{ marginBottom: 0 }}>Desglose de Conceptos (Opcional)</label>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Presupuesto Manual</label>
                   <button type="button" className="btn btn-ghost" style={{ padding: '0 8px', fontSize: 12, height: 24 }} onClick={() => setConceptLines([...conceptLines, { concept: '', amount: '' }])}>
                     + Agregar ítem
                   </button>
@@ -902,17 +913,77 @@ export function Budgets() {
                         </button>
                       </div>
                     ))}
-                    <div style={{ textAlign: 'right', marginTop: 8, fontSize: 14, fontWeight: 700, color: 'var(--primary-500)' }}>
-                      Total: {formatMoney(conceptLines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0))}
+                    <div style={{ textAlign: 'right', marginTop: 4, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Subtotal manual: {formatMoney(conceptLines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0))}
                     </div>
                   </div>
                 ) : (
-                  <div className="form-group">
-                    <label className="form-label">Monto Global</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
                     <input className="form-input" type="number" inputMode="numeric" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="50000" required={conceptLines.length === 0} />
                   </div>
                 )}
               </div>
+
+              {/* Credit card installments breakdown for this category */}
+              {modalCardInstsForCategory > 0 && (
+                <div style={{
+                  background: 'var(--bg-elevated)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '10px 12px',
+                  marginBottom: 16,
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
+                    💳 Cuotas de Tarjeta en este mes
+                  </div>
+                  {monthInstallments.filter(i => {
+                    const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
+                    return plan?.category_id === form.category_id;
+                  }).map((inst, idx) => {
+                    const plan = Array.isArray(inst.plan) ? inst.plan[0] : inst.plan;
+                    return (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          {plan?.description || 'Cuota'} · cuota {inst.installment_number}/{plan?.installment_count}
+                          {plan?.credit_card?.name ? ` · ${plan.credit_card.name}` : ''}
+                        </span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatMoney(Number(inst.amount))}</span>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-subtle)', paddingTop: 6, marginTop: 2 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Subtotal tarjetas</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary-500)' }}>{formatMoney(modalCardInstsForCategory)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Total summary */}
+              {modalCardInstsForCategory > 0 && (
+                <div style={{
+                  background: 'var(--bg-card)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '10px 14px',
+                  marginBottom: 16,
+                  border: '1px solid var(--primary-500)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Presupuestado del Mes</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                      Manual {formatMoney(modalManualAmount)} + Tarjetas {formatMoney(modalCardInstsForCategory)}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--primary-500)' }}>
+                    {formatMoney(modalTotalBudgetForMonth)}
+                  </div>
+                </div>
+              )}
               
               <button type="submit" className="btn btn-primary btn-block btn-lg">
                 {editingBudgetId ? 'Guardar Cambios' : 'Crear Presupuesto'}
