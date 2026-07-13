@@ -16,6 +16,7 @@ export function Dashboard() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentMonthTxs, setCurrentMonthTxs] = useState<Transaction[]>([]);
+  const [allMonthTxs, setAllMonthTxs] = useState<any[]>([]);
   const [monthlyInstallments, setMonthlyInstallments] = useState<MonthlyInstallment[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,7 @@ export function Dashboard() {
     const [accountsRes, transactionsRes, currentMonthTxsRes, installmentsRes, savingsRes] = await Promise.all([
       supabase.from('accounts').select('*').eq('status', 'active').order('name'),
       supabase.from('transactions').select('*, category:category_id(*), account:account_id(*)').order('transaction_date', { ascending: false }).limit(10),
-      supabase.from('transactions').select('amount, type').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
+      supabase.from('transactions').select('account_id, to_account_id, type, amount, transaction_date, is_installment_purchase').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
       supabase.rpc('get_monthly_installments', { p_user_id: user!.id, p_month: month, p_year: year }),
       supabase.from('savings_goals').select('*').limit(3),
     ]);
@@ -48,7 +49,10 @@ export function Dashboard() {
     if (installmentsRes.data) setMonthlyInstallments(installmentsRes.data as any);
     if (savingsRes.data) setSavingsGoals(savingsRes.data);
     
-    if (currentMonthTxsRes.data) setCurrentMonthTxs((currentMonthTxsRes.data as any).filter((t: any) => !t.is_installment_purchase));
+    if (currentMonthTxsRes.data) {
+      setAllMonthTxs(currentMonthTxsRes.data);
+      setCurrentMonthTxs((currentMonthTxsRes.data as any).filter((t: any) => !t.is_installment_purchase));
+    }
     
     // Check recurring transactions
     await checkRecurringTransactions();
@@ -109,12 +113,39 @@ export function Dashboard() {
   // (Assuming installments are in primary currency ARS for simplicity in real-available calculation)
   const primaryCurrency = 'ARS';
 
-  const monthExpenses = currentMonthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
+  // base expense (cash/debit) + paid installments
+  const baseExpenses = currentMonthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
+  const paidCardPayments = monthlyInstallments
+    .filter((i: any) => i.status === 'paid')
+    .reduce((sum, i) => sum + Number(i.amount), 0);
+  const monthExpenses = baseExpenses + paidCardPayments;
   const monthIncome = currentMonthTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
 
   const mainCurrency = Object.keys(totalsByCurrency)[0] || primaryCurrency;
   const currentTotalBalance = totalsByCurrency[mainCurrency] || 0;
-  const initialBalance = currentTotalBalance - monthIncome + monthExpenses;
+
+  // Calculate starting balance using offsets from startOfMonth
+  let balanceOffset = 0;
+  const bankAccountIds = new Set(bankAccounts.filter(a => a.include_in_total).map(a => a.id));
+  allMonthTxs.forEach((t: any) => {
+    if (t.type === 'income' && bankAccountIds.has(t.account_id)) {
+      balanceOffset += Number(t.amount);
+    }
+    if (t.type === 'expense' && bankAccountIds.has(t.account_id)) {
+      balanceOffset -= Number(t.amount);
+    }
+    if (t.type === 'transfer') {
+      const fromBank = bankAccountIds.has(t.account_id);
+      const toBank = bankAccountIds.has(t.to_account_id);
+      if (fromBank && !toBank) {
+        balanceOffset -= Number(t.amount);
+      } else if (!fromBank && toBank) {
+        balanceOffset += Number(t.amount);
+      }
+    }
+  });
+
+  const initialBalance = currentTotalBalance - balanceOffset;
 
   // Generate Alerts
   const todayDate = new Date().getDate();

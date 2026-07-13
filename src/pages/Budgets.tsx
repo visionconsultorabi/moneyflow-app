@@ -43,13 +43,14 @@ export function Budgets() {
     const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
     const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
 
-    const [budgetsRes, catsRes, txsRes, instsRes, mbRes, allMbsRes] = await Promise.all([
+    const [budgetsRes, catsRes, txsRes, instsRes, mbRes, accountsRes, txsOffsetRes] = await Promise.all([
       supabase.from('budgets').select('*, category:categories(*)').eq('month', month).eq('year', year),
       supabase.from('categories').select('*').order('name'),
       supabase.from('transactions').select('*, category:categories(*)').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
       supabase.from('installments').select('*, plan:installment_plans(*, credit_card:accounts(*))').gte('due_month', startOfMonth).lte('due_month', endOfMonth),
       supabase.from('monthly_balances').select('balance').eq('month', month).eq('year', year).maybeSingle(),
-      supabase.from('monthly_balances').select('month, year, balance')
+      supabase.from('accounts').select('*').eq('status', 'active'),
+      supabase.from('transactions').select('account_id, to_account_id, type, amount, transaction_date').gte('transaction_date', startOfMonth)
     ]);
     
     if (catsRes.data) setCategories(catsRes.data);
@@ -64,60 +65,34 @@ export function Budgets() {
       // Manual override for current month exists
       setInitialBalance(Number(mbRes.data.balance));
     } else {
-      // Calculate by accumulating starting from the latest manual override before the current month
-      const currentYear = year;
-      const currentMonth = month;
+      // Calculate by offset starting from current balances of bank accounts
+      const activeAccounts = accountsRes.data || [];
+      const bankAccounts = activeAccounts.filter(a => a.account_type !== 'credit_card' && a.icon !== '🏪' && a.include_in_total);
+      const bankAccountIds = new Set(bankAccounts.map(a => a.id));
       
-      const prevMbs = (allMbsRes.data || [])
-        .filter(mb => mb.year < currentYear || (mb.year === currentYear && mb.month < currentMonth))
-        .sort((a, b) => {
-          if (a.year !== b.year) return b.year - a.year;
-          return b.month - a.month;
-        });
+      const currentTotalBalance = bankAccounts.reduce((sum, a) => sum + Number(a.current_balance), 0);
+      const txsOffset = txsOffsetRes.data || [];
       
-      const latestMb = prevMbs[0];
-      let startDateStr: string | null = null;
-      let startBalance = 0;
+      let balanceOffset = 0;
+      txsOffset.forEach(t => {
+        if (t.type === 'income' && bankAccountIds.has(t.account_id)) {
+          balanceOffset += Number(t.amount);
+        }
+        if (t.type === 'expense' && bankAccountIds.has(t.account_id)) {
+          balanceOffset -= Number(t.amount);
+        }
+        if (t.type === 'transfer') {
+          const fromBank = bankAccountIds.has(t.account_id);
+          const toBank = bankAccountIds.has(t.to_account_id);
+          if (fromBank && !toBank) {
+            balanceOffset -= Number(t.amount);
+          } else if (!fromBank && toBank) {
+            balanceOffset += Number(t.amount);
+          }
+        }
+      });
       
-      if (latestMb) {
-        startDateStr = new Date(latestMb.year, latestMb.month - 1, 1).toISOString().split('T')[0];
-        startBalance = Number(latestMb.balance);
-      }
-      
-      const prevMonthDate = new Date(year, month - 1, 0);
-      const endDateStr = prevMonthDate.toISOString().split('T')[0];
-      
-      // Fetch historical transactions and installments in [startDateStr, endDateStr]
-      let txQuery = supabase.from('transactions').select('amount, type, is_installment_purchase');
-      if (startDateStr) {
-        txQuery = txQuery.gte('transaction_date', startDateStr);
-      }
-      txQuery = txQuery.lte('transaction_date', endDateStr + 'T23:59:59');
-      
-      let instQuery = supabase.from('installments').select('amount, status');
-      if (startDateStr) {
-        instQuery = instQuery.gte('due_month', startDateStr);
-      }
-      instQuery = instQuery.lte('due_month', endDateStr);
-      
-      const [histTxsRes, histInstsRes] = await Promise.all([txQuery, instQuery]);
-      
-      const histTxs = histTxsRes.data || [];
-      const histInsts = histInstsRes.data || [];
-      
-      const sumIncome = histTxs
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-      
-      // Subtract only actual expenses (excluding installment purchases) and PAID installments
-      const sumExpense = histTxs
-        .filter(t => t.type === 'expense' && !t.is_installment_purchase)
-        .reduce((sum, t) => sum + Number(t.amount), 0) + 
-        histInsts
-          .filter(i => i.status === 'paid')
-          .reduce((sum, i) => sum + Number(i.amount), 0);
-      
-      setInitialBalance(startBalance + sumIncome - sumExpense);
+      setInitialBalance(currentTotalBalance - balanceOffset);
     }
 
     if (budgetsRes.data) {
@@ -156,6 +131,7 @@ export function Budgets() {
 
       const enrichedBudgets = allBudgetEntries.map((b: any) => {
         let dynamicSpent = 0;
+        let categoryInstsTotal = 0;
         const isIncome = b.category?.type === 'income';
 
         if (isIncome) {
@@ -171,9 +147,20 @@ export function Budgets() {
             const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
             return plan?.category_id === b.category_id;
           });
-          dynamicSpent += categoryInsts.reduce((sum, i) => sum + Number(i.amount), 0);
+          
+          // Egresos reales (spent) ONLY includes PAID installments
+          const paidCategoryInsts = categoryInsts.filter(i => i.status === 'paid');
+          dynamicSpent += paidCategoryInsts.reduce((sum, i) => sum + Number(i.amount), 0);
+          
+          // Presupuesto planificado (budgetedAmount) includes ALL installments
+          categoryInstsTotal = categoryInsts.reduce((sum, i) => sum + Number(i.amount), 0);
         }
-        return { ...b, spent: dynamicSpent };
+        
+        return { 
+          ...b, 
+          spent: dynamicSpent, 
+          budgetedAmount: Number(b.amount) + (isIncome ? 0 : categoryInstsTotal) 
+        };
       });
 
       const sortedBudgets = (enrichedBudgets as any[]).sort((a, b) => {
@@ -581,7 +568,7 @@ export function Budgets() {
                   <div style={{ width: 55 }}></div>
                 </div>
                 {budgets.filter(b => b.category?.type === 'income').map((budget, idx, arr) => {
-                  const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
+                  const pct = budget.budgetedAmount ? Number(budget.spent) / Number(budget.budgetedAmount) : 0;
                   const statusColor = pct >= 1 ? 'var(--success)' : pct > 0.5 ? 'var(--warning)' : 'var(--text-muted)';
                   const isExpanded = expandedBudgets.has(budget.id);
                   const hasDetails = budget.details && budget.details.length > 0;
@@ -635,7 +622,7 @@ export function Budgets() {
                         
                         <div className="budget-row-details">
                           <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.budgetedAmount))}</span>
                           </div>
 
                           <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
@@ -698,7 +685,7 @@ export function Budgets() {
                 <div style={{ width: 55 }}></div>
               </div>
                 {budgets.filter(b => b.category?.type !== 'income').map((budget, idx, arr) => {
-                  const pct = budget.amount ? Number(budget.spent) / Number(budget.amount) : 0;
+                  const pct = budget.budgetedAmount ? Number(budget.spent) / Number(budget.budgetedAmount) : 0;
                   const statusColor = pct > 1 ? 'var(--danger)' : pct > 0.8 ? 'var(--warning)' : 'var(--success)';
                   const isExpanded = expandedBudgets.has(budget.id);
                   const hasDetails = budget.details && budget.details.length > 0;
@@ -752,7 +739,7 @@ export function Budgets() {
                         
                         <div className="budget-row-details">
                           <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.amount))}</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatMoney(Number(budget.budgetedAmount))}</span>
                           </div>
 
                           <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: pct > 1 ? 'var(--danger)' : 'var(--text-primary)' }}>

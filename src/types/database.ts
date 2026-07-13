@@ -115,6 +115,7 @@ export interface Budget {
   details: { concept: string; amount: number }[];
   created_at: string;
   category?: Category;
+  budgetedAmount?: number;
 }
 
 export interface SavingsGoal {

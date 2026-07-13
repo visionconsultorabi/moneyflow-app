@@ -18,6 +18,13 @@ export function CreditCards() {
   const [showStatementForm, setShowStatementForm] = useState(false);
   const [selectedCard, setSelectedCard] = useState<Account | null>(null);
   const [bankAccounts, setBankAccounts] = useState<Account[]>([]);
+  
+  // Payment states
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentStatement, setPaymentStatement] = useState<CreditCardStatement | null>(null);
+  const [selectedSourceAccountId, setSelectedSourceAccountId] = useState('');
+  const [checkedInstallmentIds, setCheckedInstallmentIds] = useState<Set<string>>(new Set());
+
   const [form, setForm] = useState({
     name: '', institution: '', last_four_digits: '', credit_limit: '',
     billing_close_day: '25', payment_due_day: '10', interest_rate: '',
@@ -151,69 +158,86 @@ export function CreditCards() {
     }
   }
 
-  async function handleRegisterPayment(statement: CreditCardStatement) {
-    if (!selectedCard) return;
-    const amount = prompt('Monto a pagar (ars):', statement.total_amount.toString());
-    if (!amount) return;
+  function openPaymentModal(card: Account, statement: CreditCardStatement) {
+    setSelectedCard(card);
+    setPaymentStatement(statement);
+    setSelectedSourceAccountId(card.linked_account_id || bankAccounts[0]?.id || '');
     
-    const paidAmount = parseFloat(amount);
-    if (isNaN(paidAmount)) return;
+    // Filter pending installments for this card and statement month
+    const insts = plans
+      .filter(p => p.credit_card_id === card.id)
+      .flatMap(p => (p.installments || []).filter(i => i.due_month === statement.statement_month && i.status === 'pending'));
+    
+    setCheckedInstallmentIds(new Set(insts.map(i => i.id)));
+    setShowPaymentModal(true);
+  }
 
-    const sourceAccountId = selectedCard.linked_account_id || bankAccounts[0]?.id;
-    if (!sourceAccountId) {
-      alert('Debes vincular una cuenta para realizar el pago.');
+  async function handleConfirmPayment() {
+    if (!selectedCard || !paymentStatement || !selectedSourceAccountId) return;
+    
+    const selectedInsts = plans
+      .filter(p => p.credit_card_id === selectedCard.id)
+      .flatMap(p => (p.installments || []).filter(i => checkedInstallmentIds.has(i.id)));
+    
+    const paidAmount = selectedInsts.reduce((sum, i) => sum + Number(i.amount), 0);
+    
+    if (paidAmount <= 0) {
+      alert('Debes seleccionar al menos un ítem para pagar.');
       return;
     }
 
     setLoading(true);
+    setShowPaymentModal(false);
 
-    // 1. Create transfer transaction
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: user!.id,
-      account_id: sourceAccountId,
-      to_account_id: selectedCard.id,
-      type: 'transfer',
-      amount: paidAmount,
-      description: `Pago Tarjeta: ${selectedCard.name} (${statement.statement_month.slice(0, 7)})`,
-      transaction_date: new Date().toISOString().split('T')[0],
-      payment_method: 'transfer',
-    });
+    try {
+      // 1. Create transfer transaction
+      const { error: txError } = await supabase.from('transactions').insert({
+        user_id: user!.id,
+        account_id: selectedSourceAccountId,
+        to_account_id: selectedCard.id,
+        type: 'transfer',
+        amount: paidAmount,
+        description: `Pago Tarjeta: ${selectedCard.name} (${paymentStatement.statement_month.slice(0, 7)})`,
+        transaction_date: new Date().toISOString().split('T')[0],
+        payment_method: 'transfer',
+      });
 
-    if (txError) {
-      alert('Error al registrar el pago');
-      setLoading(false);
-      return;
-    }
+      if (txError) throw txError;
 
-    // 2. Update statement status
-    const newStatus = paidAmount >= statement.total_amount ? 'paid' : 'pending';
-    await supabase.from('credit_card_statements').update({
-      status: newStatus,
-      paid_amount: (statement.paid_amount || 0) + paidAmount,
-      paid_date: new Date().toISOString().split('T')[0],
-    }).eq('id', statement.id);
-
-    // 3. Mark installments as paid if full payment
-    if (newStatus === 'paid') {
-      const startOfMonth = statement.statement_month;
-      // Find installments for this card and this month
-      const { data: insts } = await supabase.from('installments')
-        .select('id, installment_plan_id')
-        .eq('due_month', startOfMonth)
-        .eq('status', 'pending');
-      
-      if (insts && insts.length > 0) {
-        // Filter those belonging to this card
-        const cardPlanIds = plans.filter(p => p.credit_card_id === selectedCard.id).map(p => p.id);
-        const targetInstIds = insts.filter(i => cardPlanIds.includes(i.installment_plan_id)).map(i => i.id);
-        
-        if (targetInstIds.length > 0) {
-          await supabase.from('installments').update({ status: 'paid', paid_date: new Date().toISOString().split('T')[0] }).in('id', targetInstIds);
-        }
+      // 2. Mark selected installments as paid
+      const targetInstIds = Array.from(checkedInstallmentIds);
+      if (targetInstIds.length > 0) {
+        const { error: instError } = await supabase.from('installments')
+          .update({ status: 'paid', paid_date: new Date().toISOString().split('T')[0] })
+          .in('id', targetInstIds);
+        if (instError) throw instError;
       }
-    }
 
-    loadData();
+      // 3. Check if all installments for this month/card are now paid
+      const allInstsForMonth = plans
+        .filter(p => p.credit_card_id === selectedCard.id)
+        .flatMap(p => (p.installments || []).filter(i => i.due_month === paymentStatement.statement_month));
+      
+      const pendingRemaining = allInstsForMonth.filter(i => i.status === 'pending' && !checkedInstallmentIds.has(i.id));
+      
+      const newStatus = pendingRemaining.length === 0 ? 'paid' : 'partial';
+
+      // 4. Update statement status
+      const { error: stmtError } = await supabase.from('credit_card_statements').update({
+        status: newStatus,
+        paid_amount: (paymentStatement.paid_amount || 0) + paidAmount,
+        paid_date: new Date().toISOString().split('T')[0],
+      }).eq('id', paymentStatement.id);
+
+      if (stmtError) throw stmtError;
+
+      alert('Pago registrado correctamente');
+    } catch (err: any) {
+      console.error(err);
+      alert('Error al registrar el pago: ' + err.message);
+    } finally {
+      loadData();
+    }
   }
 
   if (loading) return <div className="spinner" />;
@@ -355,7 +379,7 @@ export function CreditCards() {
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary-500)' }}>{formatMoney(cardMonthlyTotal, card.currency)}</span>
                     </div>
                     {statement && statement.status !== 'paid' && (
-                      <button onClick={(e) => { e.stopPropagation(); setSelectedCard(card); handleRegisterPayment(statement); }} className="btn btn-primary btn-block" style={{ height: 32, minHeight: 32, fontSize: 12, marginTop: 8 }}>
+                      <button onClick={(e) => { e.stopPropagation(); openPaymentModal(card, statement); }} className="btn btn-primary btn-block" style={{ height: 32, minHeight: 32, fontSize: 12, marginTop: 8 }}>
                         Pagar Resumen
                       </button>
                     )}
@@ -524,6 +548,143 @@ export function CreditCards() {
               </div>
               <button type="submit" className="btn btn-primary btn-block btn-lg">Guardar Resumen</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Payment Modal */}
+      {showPaymentModal && selectedCard && paymentStatement && (
+        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <div className="modal-handle" />
+            <div className="modal-header">
+              <h2 className="modal-title">Registrar Pago - {selectedCard.name}</h2>
+              <button className="modal-close" onClick={() => setShowPaymentModal(false)}><X size={18} /></button>
+            </div>
+            
+            <div style={{ padding: '0 4px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>
+              Selecciona las cuotas y consumos del mes que deseas pagar. Los ítems no seleccionados quedarán pendientes.
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Pagar desde cuenta</label>
+              <select 
+                className="form-select" 
+                value={selectedSourceAccountId} 
+                onChange={e => setSelectedSourceAccountId(e.target.value)}
+                required
+              >
+                <option value="" disabled>Seleccionar cuenta...</option>
+                {bankAccounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.name} ({formatMoney(Number(a.current_balance), a.currency)})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label" style={{ marginBottom: 8 }}>Consumos Pendientes del Mes</label>
+              <div style={{ 
+                maxHeight: 250, 
+                overflowY: 'auto', 
+                background: 'var(--bg-primary)', 
+                borderRadius: 'var(--radius-sm)', 
+                border: '1px solid var(--border-subtle)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                {(() => {
+                  const cardInsts = plans
+                    .filter(p => p.credit_card_id === selectedCard.id)
+                    .flatMap(p => (p.installments || []).filter(i => i.due_month === paymentStatement.statement_month && i.status === 'pending'))
+                    .sort((a, b) => a.installment_number - b.installment_number);
+
+                  if (cardInsts.length === 0) {
+                    return (
+                      <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                        No hay cuotas pendientes para este mes.
+                      </div>
+                    );
+                  }
+
+                  return cardInsts.map(inst => {
+                    const plan = plans.find(p => p.id === inst.installment_plan_id);
+                    const isChecked = checkedInstallmentIds.has(inst.id);
+                    return (
+                      <div 
+                        key={inst.id} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          padding: '10px 12px', 
+                          borderBottom: '1px solid var(--border-subtle)',
+                          cursor: 'pointer',
+                          background: isChecked ? 'var(--bg-elevated)' : 'transparent',
+                          transition: 'background 0.15s ease'
+                        }}
+                        onClick={() => {
+                          const next = new Set(checkedInstallmentIds);
+                          if (next.has(inst.id)) {
+                            next.delete(inst.id);
+                          } else {
+                            next.add(inst.id);
+                          }
+                          setCheckedInstallmentIds(next);
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={() => {}} // Handled by div click
+                            style={{ width: 16, height: 16, cursor: 'pointer' }}
+                          />
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: 13, fontWeight: 500 }}>{plan?.description}</span>
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Cuota {inst.installment_number} de {plan?.installment_count}</span>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>
+                          {formatMoney(Number(inst.amount), selectedCard.currency)}
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            <div style={{ 
+              background: 'var(--bg-elevated)', 
+              padding: '12px 16px', 
+              borderRadius: 'var(--radius-sm)', 
+              border: '1px solid var(--border-subtle)', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: 10 
+            }}>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Seleccionado a Pagar</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--primary-500)', marginTop: 2 }}>
+                  {formatMoney(
+                    plans
+                      .filter(p => p.credit_card_id === selectedCard.id)
+                      .flatMap(p => (p.installments || []).filter(i => checkedInstallmentIds.has(i.id)))
+                      .reduce((sum, i) => sum + Number(i.amount), 0),
+                    selectedCard.currency
+                  )}
+                </div>
+              </div>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleConfirmPayment}
+                disabled={checkedInstallmentIds.size === 0 || !selectedSourceAccountId}
+                style={{ height: 38, padding: '0 16px' }}
+              >
+                Confirmar Pago
+              </button>
+            </div>
           </div>
         </div>
       )}
