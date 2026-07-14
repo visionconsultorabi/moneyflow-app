@@ -1011,47 +1011,105 @@ export function Budgets() {
             <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
               {(() => {
                 const txs = allMonthTransactions.filter(t => t.category_id === selectedCategoryDetail.id);
-                const insts = monthInstallments.filter(i => {
-                  const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
-                  return plan?.category_id === selectedCategoryDetail.id;
-                });
                 
-                if (txs.length === 0 && insts.length === 0) {
+                // Separate paid vs pending installments
+                const paidInsts = monthInstallments.filter(i => {
+                  const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
+                  return plan?.category_id === selectedCategoryDetail.id && i.status === 'paid';
+                });
+                const pendingInsts = monthInstallments.filter(i => {
+                  const plan = Array.isArray(i.plan) ? i.plan[0] : i.plan;
+                  return plan?.category_id === selectedCategoryDetail.id && i.status !== 'paid';
+                });
+
+                const hasRealItems = txs.length > 0 || paidInsts.length > 0;
+                const hasPendingItems = pendingInsts.length > 0;
+
+                if (!hasRealItems && !hasPendingItems) {
                   return <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>Sin movimientos en este período</div>;
                 }
 
+                const realItems = [
+                  ...txs.map(t => ({ ...t, _type: 'tx' as const })),
+                  ...paidInsts.map(i => ({ ...i, _type: 'inst' as const }))
+                ].sort((a, b) => {
+                  const dateA = (a as any).transaction_date || (a as any).due_month || '';
+                  const dateB = (b as any).transaction_date || (b as any).due_month || '';
+                  return dateB.localeCompare(dateA);
+                });
+
+                const realTotal = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
+                  + paidInsts.reduce((s, i) => s + Number(i.amount), 0);
+                const pendingTotal = pendingInsts.reduce((s, i) => s + Number(i.amount), 0);
+
                 return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {[...txs, ...insts]
-                      .sort((a, b) => {
-                        const dateA = a.transaction_date || a.due_month;
-                        const dateB = b.transaction_date || b.due_month;
-                        return dateB.localeCompare(dateA);
-                      })
-                      .map((item, idx) => {
-                        const isInst = !!item.due_month;
-                        const description = isInst ? (item.plan?.description || 'Cuota de tarjeta') : (item.description || 'Sin descripción');
-                        const date = isInst ? item.due_month : item.transaction_date;
-                        const amount = Number(item.amount);
-                        const type = isInst ? 'expense' : item.type;
-                        
-                        return (
-                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              <div style={{ fontSize: 13, fontWeight: 500 }}>{description}</div>
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                {new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
-                                {isInst && ` · Cuota ${item.installment_number}/${item.plan?.installment_count}`}
-                                {!isInst && item.account && ` · ${item.account.name}`}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                    {/* Real / paid section */}
+                    {hasRealItems && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+                          <span>✅ Ejecutado Real</span>
+                          <span style={{ color: 'var(--danger)' }}>-{formatMoney(realTotal)}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {realItems.map((item, idx) => {
+                            const isInst = item._type === 'inst';
+                            const t = item as any;
+                            const description = isInst ? (t.plan?.description || 'Cuota de tarjeta') : (t.description || 'Sin descripción');
+                            const date = isInst ? t.due_month : t.transaction_date;
+                            const amount = Number(t.amount);
+                            const isIncome = !isInst && t.type === 'income';
+                            return (
+                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 500 }}>{description}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                    {new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                    {isInst && ` · Cuota ${t.installment_number}/${t.plan?.installment_count} · 💳 pagado`}
+                                    {!isInst && t.account && ` · ${t.account.name}`}
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: isIncome ? 'var(--success)' : 'var(--danger)' }}>
+                                  {isIncome ? '+' : '-'}{formatMoney(amount)}
+                                </div>
                               </div>
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: type === 'income' ? 'var(--success)' : 'var(--danger)' }}>
-                              {type === 'income' ? '+' : '-'}{formatMoney(amount)}
-                            </div>
-                          </div>
-                        );
-                      })
-                    }
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pending installments section */}
+                    {hasPendingItems && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+                          <span>⏳ Pendiente de Pago (tarjeta)</span>
+                          <span style={{ color: 'var(--text-muted)' }}>{formatMoney(pendingTotal)}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {pendingInsts.map((inst, idx) => {
+                            const plan = Array.isArray(inst.plan) ? inst.plan[0] : inst.plan;
+                            return (
+                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-strong)', opacity: 0.75 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 500 }}>{plan?.description || 'Cuota de tarjeta'}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                    {new Date(inst.due_month + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                    {` · Cuota ${inst.installment_number}/${plan?.installment_count} · 💳 pendiente`}
+                                    {plan?.credit_card?.name ? ` · ${plan.credit_card.name}` : ''}
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)' }}>
+                                  -{formatMoney(Number(inst.amount))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 );
               })()}
