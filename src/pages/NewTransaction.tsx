@@ -2,12 +2,26 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import type { Account, Category, CreditCardStatement } from '../types/database';
-import { ArrowLeft } from 'lucide-react';
+import type { Account, Category, CreditCardStatement, SplitType, PaidBy } from '../types/database';
+import { ArrowLeft, Users } from 'lucide-react';
 import { CompactSelector } from '../components/CompactSelector';
-
+import {
+  addSharedExpense,
+  calculateSplitAmount,
+  getDefaultPersonName,
+  setDefaultPersonName,
+} from '../lib/sharedExpenses';
 
 const INSTALLMENT_OPTIONS = [1, 2, 3, 5, 6, 9, 12, 18, 24];
+
+const SPLIT_OPTIONS: { type: SplitType; label: string; desc: string }[] = [
+  { type: 'half', label: '1/2 (50%)', desc: 'Dividir en 2' },
+  { type: 'third', label: '1/3 (33%)', desc: 'Dividir en 3' },
+  { type: 'two_thirds', label: '2/3 (67%)', desc: '2 terceras partes' },
+  { type: 'full', label: '100%', desc: 'Total' },
+  { type: 'custom_amount', label: 'Monto Fijo', desc: 'Monto exacto $' },
+  { type: 'custom_percentage', label: '% Exacto', desc: 'Porcentaje %' },
+];
 
 export function NewTransaction() {
   const { user } = useAuth();
@@ -33,6 +47,12 @@ export function NewTransaction() {
     installment_count: 1,
     has_interest: false,
     interest_rate: '',
+    // Shared / Split fields
+    is_shared: false,
+    shared_paid_by: 'user' as PaidBy, // 'user' (Yo pagué) | 'other' (La otra persona pagó)
+    shared_person_name: getDefaultPersonName(),
+    shared_split_type: 'half' as SplitType,
+    shared_custom_value: '',
   });
 
   useEffect(() => { if (user) loadData(); }, [user]);
@@ -95,6 +115,10 @@ export function NewTransaction() {
     }
   }
 
+  // Calculate shared preview
+  const numCustomShared = parseFloat(form.shared_custom_value) || 0;
+  const sharedPreview = calculateSplitAmount(amount, form.shared_split_type, numCustomShared);
+
   function getFirstInstallmentMonthStr() {
     const txDateStr = form.transaction_date;
     const [year, month, day] = txDateStr.split('-').map(Number);
@@ -136,92 +160,125 @@ export function NewTransaction() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!amount || !form.account_id) return;
+    if (!amount) return;
     setSaving(true);
 
     try {
       const accountId = isCreditCard ? form.credit_card_id : form.account_id;
-      const defaultDesc = form.description || (form.type === 'transfer' ? `Transferencia a ${accounts.find(a => a.id === form.to_account_id)?.name || 'Cuenta'}` : '');
+      const defaultDesc = form.description || (form.type === 'transfer' ? `Transferencia a ${accounts.find(a => a.id === form.to_account_id)?.name || 'Cuenta'}` : 'Gasto');
+      let createdTxId: string | null = null;
 
-      if (isCreditCard) {
-        // Create installment purchase
-        const firstMonthStr = getFirstInstallmentMonthStr();
+      // Check if user paid and standard transaction should be recorded
+      const shouldCreateStandardTx = !form.is_shared || form.shared_paid_by === 'user';
 
-        // 1. Create installment plan first (without transaction_id)
-        const { data: planData, error: planError } = await supabase.from('installment_plans').insert({
-          user_id: user!.id,
-          credit_card_id: form.credit_card_id,
-          total_amount: amount,
-          installment_count: form.installment_count,
-          installment_amount: installmentAmount,
-          interest_rate: form.has_interest ? rate : 0,
-          financing_cost: financingCost,
-          first_installment_month: firstMonthStr,
-          description: defaultDesc,
-          category_id: form.category_id || null,
-          status: 'active',
-        }).select().single();
+      if (shouldCreateStandardTx) {
+        if (isCreditCard) {
+          // Create installment purchase
+          const firstMonthStr = getFirstInstallmentMonthStr();
 
-        if (planError) throw planError;
+          // 1. Create installment plan first
+          const { data: planData, error: planError } = await supabase.from('installment_plans').insert({
+            user_id: user!.id,
+            credit_card_id: form.credit_card_id,
+            total_amount: amount,
+            installment_count: form.installment_count,
+            installment_amount: installmentAmount,
+            interest_rate: form.has_interest ? rate : 0,
+            financing_cost: financingCost,
+            first_installment_month: firstMonthStr,
+            description: defaultDesc,
+            category_id: form.category_id || null,
+            status: 'active',
+          }).select().single();
 
-        // 2. Create N individual installments
-        const installments = [];
-        const [firstY, firstM] = firstMonthStr.split('-').map(Number);
-        for (let i = 0; i < form.installment_count; i++) {
-          let dueM = firstM + i;
-          let dueY = firstY;
-          if (dueM > 12) {
-            dueY += Math.floor((dueM - 1) / 12);
-            dueM = ((dueM - 1) % 12) + 1;
+          if (planError) throw planError;
+
+          // 2. Create N individual installments
+          const installments = [];
+          const [firstY, firstM] = firstMonthStr.split('-').map(Number);
+          for (let i = 0; i < form.installment_count; i++) {
+            let dueM = firstM + i;
+            let dueY = firstY;
+            if (dueM > 12) {
+              dueY += Math.floor((dueM - 1) / 12);
+              dueM = ((dueM - 1) % 12) + 1;
+            }
+            const dueMonthStr = `${dueY}-${dueM.toString().padStart(2, '0')}-01`;
+            installments.push({
+              installment_plan_id: planData.id,
+              installment_number: i + 1,
+              amount: installmentAmount,
+              due_month: dueMonthStr,
+              status: 'pending',
+            });
           }
-          const dueMonthStr = `${dueY}-${dueM.toString().padStart(2, '0')}-01`;
-          installments.push({
+
+          const { error: instError } = await supabase.from('installments').insert(installments);
+          if (instError) throw instError;
+
+          // 3. Create main transaction
+          const { data: txData, error: txError } = await supabase.from('transactions').insert({
+            user_id: user!.id,
+            account_id: accountId,
+            type: form.type,
+            amount: amount,
+            category_id: form.type !== 'transfer' ? (form.category_id || null) : null,
+            description: defaultDesc,
+            transaction_date: form.transaction_date,
+            payment_method: form.type === 'transfer' ? 'transfer' : 'credit',
+            to_account_id: form.type === 'transfer' ? form.to_account_id : null,
+            is_installment_purchase: true,
             installment_plan_id: planData.id,
-            installment_number: i + 1,
-            amount: installmentAmount,
-            due_month: dueMonthStr,
-            status: 'pending',
-          });
+            notes: form.is_shared ? `Compartido con ${form.shared_person_name} (${sharedPreview.label})` : null,
+          }).select().single();
+
+          if (txError) throw txError;
+          createdTxId = txData.id;
+
+          // 4. Link transaction to plan
+          await supabase.from('installment_plans').update({ transaction_id: txData.id }).eq('id', planData.id);
+
+        } else {
+          // Simple transaction (no installments)
+          const { data: txData, error } = await supabase.from('transactions').insert({
+            user_id: user!.id,
+            account_id: accountId,
+            type: form.type,
+            amount: amount,
+            category_id: form.type !== 'transfer' ? (form.category_id || null) : null,
+            description: defaultDesc,
+            transaction_date: form.transaction_date,
+            payment_method: form.type === 'transfer' ? 'transfer' : form.payment_method,
+            to_account_id: form.type === 'transfer' ? form.to_account_id || null : null,
+            is_installment_purchase: false,
+            notes: form.is_shared ? `Compartido con ${form.shared_person_name} (${sharedPreview.label})` : null,
+          }).select().single();
+
+          if (error) throw error;
+          if (txData) createdTxId = txData.id;
         }
+      }
 
-        const { error: instError } = await supabase.from('installments').insert(installments);
-        if (instError) throw instError;
-
-        // 3. Create main transaction
-        const { data: txData, error: txError } = await supabase.from('transactions').insert({
-          user_id: user!.id,
-          account_id: accountId,
-          type: form.type,
-          amount: amount,
-          category_id: form.type !== 'transfer' ? (form.category_id || null) : null,
+      // If Shared Expense is enabled, record to Shared Expenses Ledger
+      if (form.is_shared && user) {
+        setDefaultPersonName(form.shared_person_name);
+        const selectedCat = categories.find(c => c.id === form.category_id);
+        await addSharedExpense(user.id, {
+          transaction_id: createdTxId,
+          person_name: form.shared_person_name || 'Pareja',
+          paid_by: form.shared_paid_by,
+          original_amount: amount,
+          split_type: form.shared_split_type,
+          split_ratio: sharedPreview.splitRatio,
+          calculated_amount: sharedPreview.calculatedAmount,
           description: defaultDesc,
-          transaction_date: form.transaction_date,
-          payment_method: form.type === 'transfer' ? 'transfer' : 'credit',
-          to_account_id: form.type === 'transfer' ? form.to_account_id : null,
-          is_installment_purchase: true,
-          installment_plan_id: planData.id,
-        }).select().single();
-
-        if (txError) throw txError;
-
-        // 4. Link transaction to plan
-        await supabase.from('installment_plans').update({ transaction_id: txData.id }).eq('id', planData.id);
-
-      } else {
-        // Simple transaction (no installments)
-        const { error } = await supabase.from('transactions').insert({
-          user_id: user!.id,
-          account_id: accountId,
-          type: form.type,
-          amount: amount,
-          category_id: form.type !== 'transfer' ? (form.category_id || null) : null,
-          description: defaultDesc,
-          transaction_date: form.transaction_date,
-          payment_method: form.type === 'transfer' ? 'transfer' : form.payment_method,
-          to_account_id: form.type === 'transfer' ? form.to_account_id || null : null,
-          is_installment_purchase: false,
+          date: form.transaction_date,
+          category_name: selectedCat?.name || null,
+          status: 'pending',
+          notes: form.shared_paid_by === 'other'
+            ? `Pagó ${form.shared_person_name} · Debo devolver ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(sharedPreview.calculatedAmount)}`
+            : `Pagué yo · Me debe reintegrar ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(sharedPreview.calculatedAmount)}`,
         });
-        if (error) throw error;
       }
 
       navigate(-1);
@@ -263,7 +320,7 @@ export function NewTransaction() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Amount */}
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Monto</label>
+            <label className="form-label">Monto Total</label>
             <div style={{ position: 'relative' }}>
               <span className="amount-currency">
                 {new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(0).replace(/\d/g, '').trim()}
@@ -283,7 +340,7 @@ export function NewTransaction() {
           </div>
 
           {/* Payment Method Selector for Expenses */}
-          {form.type === 'expense' && (
+          {form.type === 'expense' && (!form.is_shared || form.shared_paid_by === 'user') && (
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Método de Pago</label>
               <div className="tabs" style={{ padding: 2 }}>
@@ -301,43 +358,45 @@ export function NewTransaction() {
           )}
 
           {/* Account / Card Selector */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {form.type === 'transfer' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {(!form.is_shared || form.shared_paid_by === 'user') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {form.type === 'transfer' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <CompactSelector
+                    label="Desde"
+                    options={[...accounts, ...creditCards]}
+                    selectedId={form.account_id}
+                    onChange={id => setForm({ ...form, account_id: id })}
+                  />
+                  <CompactSelector
+                    label="Hacia"
+                    options={([...accounts, ...creditCards]).filter(a => a.id !== form.account_id)}
+                    selectedId={form.to_account_id}
+                    onChange={id => setForm({ ...form, to_account_id: id })}
+                  />
+                </div>
+              ) : isCreditCard ? (
                 <CompactSelector
-                  label="Desde"
-                  options={[...accounts, ...creditCards]}
+                  label="Tarjeta de Crédito"
+                  options={creditCards}
+                  selectedId={form.credit_card_id}
+                  onChange={id => setForm({ ...form, credit_card_id: id })}
+                  placeholder="Seleccionar tarjeta..."
+                />
+              ) : (
+                <CompactSelector
+                  label={form.type === 'income' ? 'Cuenta de Destino' : 'Cuenta'}
+                  options={accounts}
                   selectedId={form.account_id}
                   onChange={id => setForm({ ...form, account_id: id })}
+                  placeholder="Seleccionar cuenta..."
                 />
-                <CompactSelector
-                  label="Hacia"
-                  options={([...accounts, ...creditCards]).filter(a => a.id !== form.account_id)}
-                  selectedId={form.to_account_id}
-                  onChange={id => setForm({ ...form, to_account_id: id })}
-                />
-              </div>
-            ) : isCreditCard ? (
-              <CompactSelector
-                label="Tarjeta de Crédito"
-                options={creditCards}
-                selectedId={form.credit_card_id}
-                onChange={id => setForm({ ...form, credit_card_id: id })}
-                placeholder="Seleccionar tarjeta..."
-              />
-            ) : (
-              <CompactSelector
-                label={form.type === 'income' ? 'Cuenta de Destino' : 'Cuenta'}
-                options={accounts}
-                selectedId={form.account_id}
-                onChange={id => setForm({ ...form, account_id: id })}
-                placeholder="Seleccionar cuenta..."
-              />
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Credit Card Installments */}
-          {isCreditCard && (
+          {isCreditCard && (!form.is_shared || form.shared_paid_by === 'user') && (
             <div style={{ marginTop: -4 }}>
               <div className="form-group" style={{ marginBottom: 12 }}>
                 <label className="form-label">Cuotas</label>
@@ -398,10 +457,164 @@ export function NewTransaction() {
               hideIcons
             />
           )}
+
+          {/* SHARED / SPLIT EXPENSE SECTION */}
+          {form.type === 'expense' && (
+            <div
+              style={{
+                background: form.is_shared ? 'var(--bg-elevated)' : 'transparent',
+                border: `1px solid ${form.is_shared ? 'var(--primary-500)' : 'var(--border-default)'}`,
+                borderRadius: 'var(--radius-lg)',
+                padding: '12px 14px',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Users size={18} color={form.is_shared ? 'var(--primary)' : 'var(--text-muted)'} />
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>
+                    Dividir / Gasto Compartido o Reintegro
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={form.is_shared}
+                  onChange={e => setForm({ ...form, is_shared: e.target.checked })}
+                  style={{ width: 18, height: 18, accentColor: 'var(--primary)' }}
+                />
+              </label>
+
+              {form.is_shared && (
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* ¿Quién pagó? */}
+                  <div>
+                    <label className="form-label" style={{ fontSize: 12 }}>¿Quién realizó el pago?</label>
+                    <div className="tabs" style={{ padding: 2 }}>
+                      <button
+                        type="button"
+                        className={`tab ${form.shared_paid_by === 'user' ? 'active' : ''}`}
+                        onClick={() => setForm({ ...form, shared_paid_by: 'user' })}
+                        style={{
+                          background: form.shared_paid_by === 'user' ? 'var(--success)' : undefined,
+                          color: form.shared_paid_by === 'user' ? '#fff' : undefined,
+                          fontSize: 12,
+                        }}
+                      >
+                        💳 Yo pagué (Me debe reintegrar)
+                      </button>
+                      <button
+                        type="button"
+                        className={`tab ${form.shared_paid_by === 'other' ? 'active' : ''}`}
+                        onClick={() => setForm({ ...form, shared_paid_by: 'other' })}
+                        style={{
+                          background: form.shared_paid_by === 'other' ? 'var(--danger)' : undefined,
+                          color: form.shared_paid_by === 'other' ? '#fff' : undefined,
+                          fontSize: 12,
+                        }}
+                      >
+                        👤 La otra persona pagó (Debo devolver)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Persona */}
+                  <div>
+                    <label className="form-label" style={{ fontSize: 12 }}>Persona / Compartido con</label>
+                    <input
+                      className="form-input"
+                      type="text"
+                      value={form.shared_person_name}
+                      onChange={e => setForm({ ...form, shared_person_name: e.target.value })}
+                      placeholder="Ej: Pareja, Lucas, Mamá..."
+                      required={form.is_shared}
+                    />
+                  </div>
+
+                  {/* División */}
+                  <div>
+                    <label className="form-label" style={{ fontSize: 12 }}>¿Cómo se divide / reintegra?</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                      {SPLIT_OPTIONS.map(opt => (
+                        <button
+                          key={opt.type}
+                          type="button"
+                          className={`btn ${form.shared_split_type === opt.type ? 'btn-primary' : 'btn-secondary'}`}
+                          onClick={() => setForm({ ...form, shared_split_type: opt.type })}
+                          style={{ padding: '6px 4px', fontSize: 11, textAlign: 'center', justifyContent: 'center' }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {form.shared_split_type === 'custom_amount' && (
+                      <div style={{ marginTop: 8 }}>
+                        <input
+                          className="form-input"
+                          type="number"
+                          step="0.01"
+                          value={form.shared_custom_value}
+                          onChange={e => setForm({ ...form, shared_custom_value: e.target.value })}
+                          placeholder="Monto exacto a computar ($)"
+                        />
+                      </div>
+                    )}
+
+                    {form.shared_split_type === 'custom_percentage' && (
+                      <div style={{ marginTop: 8 }}>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={form.shared_custom_value}
+                          onChange={e => setForm({ ...form, shared_custom_value: e.target.value })}
+                          placeholder="Porcentaje exacto a computar (%)"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Real-time Calculation Badge */}
+                  {amount > 0 && (
+                    <div
+                      style={{
+                        padding: 10,
+                        borderRadius: 6,
+                        background: form.shared_paid_by === 'other' ? 'var(--danger-alpha)' : 'var(--success-alpha)',
+                        border: `1px solid ${form.shared_paid_by === 'other' ? 'var(--danger)' : 'var(--success)'}`,
+                        fontSize: 12,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Monto a computar ({sharedPreview.label}):</span>
+                        <strong style={{ fontSize: 14, color: form.shared_paid_by === 'other' ? 'var(--danger)' : 'var(--success)' }}>
+                          {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(sharedPreview.calculatedAmount)}
+                        </strong>
+                      </div>
+                      <div style={{ marginTop: 3, opacity: 0.9 }}>
+                        {form.shared_paid_by === 'other'
+                          ? `➕ Suma a lo que debes devolverle a ${form.shared_person_name || 'la otra persona'}.`
+                          : `➖ Resta de tu deuda / a tu favor con ${form.shared_person_name || 'la otra persona'}.`}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Description */}
-        <div className="form-group">
+        <div className="form-group" style={{ marginTop: 12 }}>
           <label className="form-label">Descripción</label>
           <input className="form-input" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="¿En qué gastaste?" />
         </div>

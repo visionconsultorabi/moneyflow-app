@@ -14,6 +14,7 @@ import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { Savings } from './pages/Savings';
 import { Recurring } from './pages/Recurring';
+import { SharedExpenses } from './pages/SharedExpenses';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="/accounts" element={<Accounts />} />
         <Route path="/cards" element={<CreditCards />} />
         <Route path="/transactions" element={<Transactions />} />
+        <Route path="/shared" element={<SharedExpenses />} />
         <Route path="/new-transaction" element={<NewTransaction />} />
         <Route path="/budgets" element={<Budgets />} />
         <Route path="/reports" element={<Reports />} />

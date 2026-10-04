@@ -16,7 +16,16 @@ export function Login() {
     setLoading(true);
     const { error } = await signIn(email, password);
     if (error) {
-      setError('Email o contraseña incorrectos');
+      const msg = error.message.toLowerCase();
+      if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
+        setError('Email o contraseña incorrectos.');
+      } else if (msg.includes('email not confirmed')) {
+        setError('Tu email no ha sido confirmado aún. Por favor revisa tu casilla de correo.');
+      } else if (msg.includes('fetch') || msg.includes('network') || msg.includes('timeout')) {
+        setError('Error de conexión con el servidor. Revisa tu conexión a internet o el estado de Supabase.');
+      } else {
+        setError(error.message || 'Error al iniciar sesión.');
+      }
       setLoading(false);
     } else {
       navigate('/');

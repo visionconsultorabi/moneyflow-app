@@ -176,3 +176,28 @@ export interface MonthlyInstallment {
   due_month: string;
   status: string;
 }
+
+// Shared Expenses & Settlements
+export type SplitType = 'full' | 'half' | 'third' | 'two_thirds' | 'custom_percentage' | 'custom_amount';
+export type PaidBy = 'user' | 'other';
+export type SharedStatus = 'pending' | 'settled';
+
+export interface SharedExpense {
+  id: string;
+  user_id: string;
+  transaction_id?: string | null;
+  person_name: string; // Ej: "Pareja", "Juan", "Lucas", etc.
+  paid_by: PaidBy; // 'user' (Yo pagué) | 'other' (La otra persona pagó)
+  original_amount: number;
+  split_type: SplitType;
+  split_ratio: number; // 1, 0.5, 0.3333, etc.
+  calculated_amount: number; // Monto a computar (lo que se debe o se reintegra)
+  description: string;
+  date: string;
+  category_name?: string | null;
+  status: SharedStatus;
+  settled_at?: string | null;
+  notes?: string | null;
+  created_at: string;
+}
+

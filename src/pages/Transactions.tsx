@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Transaction, Account, Category } from '../types/database';
-import { Plus, Search, ArrowRightLeft, Trash2, X, Edit2 } from 'lucide-react';
+import { Plus, Search, ArrowRightLeft, Trash2, X, Edit2, Download } from 'lucide-react';
 import { CompactSelector } from '../components/CompactSelector';
+import { exportAllDataToExcel } from '../lib/exportExcel';
 
 const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
@@ -192,9 +193,14 @@ export function Transactions() {
           <h1 className="page-title">Transacciones</h1>
           <p className="page-subtitle">{filtered.length} movimientos</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/new-transaction')}>
-          <Plus size={18} /> Nueva
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" onClick={() => exportAllDataToExcel()} title="Exportar a Excel">
+            <Download size={18} /> Excel
+          </button>
+          <button className="btn btn-primary" onClick={() => navigate('/new-transaction')}>
+            <Plus size={18} /> Nueva
+          </button>
+        </div>
       </div>
 
       {/* Account Filter Badge */}

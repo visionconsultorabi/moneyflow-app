@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CreditCard, Plus, PieChart, BarChart2, Settings, LogOut, Wallet, Target, RefreshCw, Menu, X, Sun, Moon, Eye, EyeOff } from 'lucide-react';
+import { LayoutDashboard, CreditCard, Plus, PieChart, BarChart2, Settings, LogOut, Wallet, Target, RefreshCw, Menu, X, Sun, Moon, Eye, EyeOff, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -16,6 +16,7 @@ export function Layout() {
       case '/accounts': return 'Cuentas';
       case '/cards': return 'Tarjetas';
       case '/transactions': return 'Transacciones';
+      case '/shared': return 'Cuentas Compartidas';
       case '/reports': return 'Reportes';
       case '/budgets': return 'Presupuestos';
       case '/savings': return 'Ahorros';
@@ -50,6 +51,10 @@ export function Layout() {
           <NavLink to="/transactions" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <PieChart size={20} />
             Transacciones
+          </NavLink>
+          <NavLink to="/shared" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <Users size={20} />
+            Cuentas Compartidas
           </NavLink>
           <NavLink to="/budgets" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <PieChart size={20} />
@@ -120,6 +125,9 @@ export function Layout() {
             <nav className="menu-nav">
               <NavLink to="/transactions" onClick={() => setIsMenuOpen(false)} className="menu-link">
                 <PieChart size={20} /> Transacciones
+              </NavLink>
+              <NavLink to="/shared" onClick={() => setIsMenuOpen(false)} className="menu-link">
+                <Users size={20} /> Cuentas Compartidas
               </NavLink>
               <NavLink to="/reports" onClick={() => setIsMenuOpen(false)} className="menu-link">
                 <BarChart2 size={20} /> Reportes

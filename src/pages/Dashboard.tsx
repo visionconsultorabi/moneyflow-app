@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, Transaction, MonthlyInstallment, SavingsGoal } from '../types/database';
-import { Plus, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowRightLeft, AlertTriangle, Users } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { getSharedExpenses, calculateBalances } from '../lib/sharedExpenses';
+
 
 function formatMoney(amount: number, currency = 'ARS') {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -19,6 +21,7 @@ export function Dashboard() {
   const [allMonthTxs, setAllMonthTxs] = useState<any[]>([]);
   const [monthlyInstallments, setMonthlyInstallments] = useState<MonthlyInstallment[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [sharedBalances, setSharedBalances] = useState<{ total_i_owe: number; total_they_owe: number; net_balance: number; pendingCount: number }>({ total_i_owe: 0, total_they_owe: 0, net_balance: 0, pendingCount: 0 });
   const [loading, setLoading] = useState(true);
   const { privacyMode } = useTheme();
   const showBalances = privacyMode;
@@ -36,18 +39,20 @@ export function Dashboard() {
     const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
     const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
 
-    const [accountsRes, transactionsRes, currentMonthTxsRes, installmentsRes, savingsRes] = await Promise.all([
+    const [accountsRes, transactionsRes, currentMonthTxsRes, installmentsRes, savingsRes, sharedExpenses] = await Promise.all([
       supabase.from('accounts').select('*').eq('status', 'active').order('name'),
       supabase.from('transactions').select('*, category:category_id(*), account:account_id(*)').order('transaction_date', { ascending: false }).limit(10),
       supabase.from('transactions').select('account_id, to_account_id, type, amount, transaction_date, is_installment_purchase').gte('transaction_date', startOfMonth).lte('transaction_date', endOfMonth + 'T23:59:59'),
       supabase.rpc('get_monthly_installments', { p_user_id: user!.id, p_month: month, p_year: year }),
       supabase.from('savings_goals').select('*').limit(3),
+      getSharedExpenses(user!.id),
     ]);
 
     if (accountsRes.data) setAccounts(accountsRes.data);
     if (transactionsRes.data) setTransactions(transactionsRes.data as any);
     if (installmentsRes.data) setMonthlyInstallments(installmentsRes.data as any);
     if (savingsRes.data) setSavingsGoals(savingsRes.data);
+    if (sharedExpenses) setSharedBalances(calculateBalances(sharedExpenses));
     
     if (currentMonthTxsRes.data) {
       setAllMonthTxs(currentMonthTxsRes.data);
@@ -234,6 +239,50 @@ export function Dashboard() {
         <div className="stat-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
           <div className="stat-label" style={{ marginBottom: 0, fontSize: 11, fontWeight: 500 }}>Gastos</div>
           <div className="stat-value negative" style={{ fontSize: 15, fontWeight: 500 }}>{showBalances ? formatMoney(monthExpenses) : '****'}</div>
+        </div>
+
+        {/* Shared Expenses Widget */}
+        <div
+          className="stat-card"
+          onClick={() => navigate('/shared')}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '12px 16px',
+            cursor: 'pointer',
+            borderLeft: sharedBalances.pendingCount > 0
+              ? `4px solid ${sharedBalances.net_balance > 0 ? 'var(--danger)' : sharedBalances.net_balance < 0 ? 'var(--success)' : 'var(--primary)'}`
+              : undefined,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Users size={16} color="var(--primary)" />
+            <div>
+              <div className="stat-label" style={{ marginBottom: 0, fontSize: 11, fontWeight: 600 }}>
+                Cuentas Compartidas {sharedBalances.pendingCount > 0 ? `(${sharedBalances.pendingCount} pendientes)` : ''}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {sharedBalances.pendingCount === 0
+                  ? 'Sin deudas pendientes'
+                  : sharedBalances.net_balance > 0
+                  ? 'Debes reintegrar'
+                  : sharedBalances.net_balance < 0
+                  ? 'Te deben reintegrar'
+                  : 'Cuentas al día'}
+              </div>
+            </div>
+          </div>
+          <div
+            className={`stat-value ${sharedBalances.net_balance > 0 ? 'negative' : sharedBalances.net_balance < 0 ? 'positive' : ''}`}
+            style={{ fontSize: 15, fontWeight: 600 }}
+          >
+            {showBalances ? (
+              sharedBalances.pendingCount === 0
+                ? '$0'
+                : `${sharedBalances.net_balance >= 0 ? '' : '+'}${formatMoney(Math.abs(sharedBalances.net_balance))}`
+            ) : '****'}
+          </div>
         </div>
       </div>
 

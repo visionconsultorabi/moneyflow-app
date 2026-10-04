@@ -28,7 +28,14 @@ export function Register() {
     setLoading(true);
     const { error } = await signUp(email, password);
     if (error) {
-      setError('Error al crear la cuenta. Intentá de nuevo.');
+      const msg = error.message.toLowerCase();
+      if (msg.includes('user already registered') || msg.includes('already exists')) {
+        setError('Ya existe una cuenta con este email. Intentá iniciar sesión.');
+      } else if (msg.includes('password')) {
+        setError(error.message);
+      } else {
+        setError(error.message || 'Error al crear la cuenta. Intentá de nuevo.');
+      }
       setLoading(false);
     } else {
       navigate('/');

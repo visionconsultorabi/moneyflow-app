@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { LogOut, User, Shield, Bell, ChevronLeft, Save } from 'lucide-react';
+import { LogOut, User, Shield, Bell, ChevronLeft, Save, Download } from 'lucide-react';
+import { exportAllDataToExcel } from '../lib/exportExcel';
 
 type View = 'main' | 'profile' | 'security' | 'notifications';
 
@@ -246,6 +247,16 @@ export function Settings() {
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>Notificaciones</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Configurar alertas y recordatorios</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card" onClick={() => exportAllDataToExcel()} style={{ cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <Download size={20} color="var(--primary-500)" />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>Exportar a Excel</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Descargar todos los movimientos, cuentas y presupuestos (.xlsx)</div>
             </div>
           </div>
         </div>
