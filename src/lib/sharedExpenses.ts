@@ -143,6 +143,48 @@ export async function getSharedExpenses(userId: string): Promise<SharedExpense[]
       .eq('user_id', userId)
       .order('date', { ascending: false });
 
+    if (!error && data) {
+      // Ensure split fields exist for each expense
+      const migrated = (data as SharedExpense[]).map((exp) => {
+        if (!exp.split_type) {
+          const defaultSplit: SplitType = 'half';
+          const { calculatedAmount, splitRatio } = calculateSplitAmount(exp.original_amount, defaultSplit);
+          exp.split_type = defaultSplit;
+          exp.split_ratio = splitRatio;
+          exp.calculated_amount = calculatedAmount;
+        }
+        return exp;
+      });
+      // Sync local cache with migrated data
+      saveLocalExpenses(userId, migrated);
+      return migrated;
+    }
+  } catch (err) {
+    console.warn('Supabase shared_expenses table not available, using local cache:', err);
+  }
+
+  // Fallback a LocalStorage and ensure migration there as well
+  const local = getLocalExpenses(userId);
+  const migratedLocal = local.map((exp) => {
+    if (!exp.split_type) {
+      const defaultSplit: SplitType = 'half';
+      const { calculatedAmount, splitRatio } = calculateSplitAmount(exp.original_amount, defaultSplit);
+      exp.split_type = defaultSplit;
+      exp.split_ratio = splitRatio;
+      exp.calculated_amount = calculatedAmount;
+    }
+    return exp;
+  });
+  saveLocalExpenses(userId, migratedLocal);
+  return migratedLocal;
+  try {
+    // Intentar leer de Supabase
+    const { data, error } = await supabase
+      .from('shared_expenses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
     if (!error && data && data.length >= 0) {
       // Sincronizar cache local
       saveLocalExpenses(userId, data as SharedExpense[]);
