@@ -177,25 +177,6 @@ export async function getSharedExpenses(userId: string): Promise<SharedExpense[]
   });
   saveLocalExpenses(userId, migratedLocal);
   return migratedLocal;
-  try {
-    // Intentar leer de Supabase
-    const { data, error } = await supabase
-      .from('shared_expenses')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
-
-    if (!error && data && data.length >= 0) {
-      // Sincronizar cache local
-      saveLocalExpenses(userId, data as SharedExpense[]);
-      return data as SharedExpense[];
-    }
-  } catch (err) {
-    console.warn('Supabase shared_expenses table not available, using local cache:', err);
-  }
-
-  // Fallback a LocalStorage
-  return getLocalExpenses(userId);
 }
 
 /**
