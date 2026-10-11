@@ -459,7 +459,7 @@ export function NewTransaction() {
           )}
 
           {/* SHARED / SPLIT EXPENSE SECTION */}
-          {form.type === 'expense' && (
+          {(form.type === 'expense' || form.type === 'transfer') && (
             <div
               style={{
                 background: form.is_shared ? 'var(--bg-elevated)' : 'transparent',

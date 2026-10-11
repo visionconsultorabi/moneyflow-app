@@ -484,8 +484,8 @@ export function Transactions() {
                 )}
               </div>
 
-              {/* Gasto Compartido / Dividir Gasto (solo para gastos) */}
-              {editingTx.type === 'expense' && (
+              {/* Gasto Compartido / Dividir Gasto (gastos y transferencias) */}
+              {(editingTx.type === 'expense' || editingTx.type === 'transfer') && (
                 <div
                   style={{
                     marginTop: 14,
