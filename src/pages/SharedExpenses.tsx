@@ -24,6 +24,7 @@ import {
   ArrowUpRight,
   Scale,
 } from 'lucide-react';
+import { MathInput } from '../components/MathInput';
 
 const formatMoney = (amount: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
@@ -643,11 +644,8 @@ export function SharedExpenses() {
               {/* Monto Total */}
               <div className="form-group">
                 <label className="form-label">Monto Total de la Factura / Gasto ($)</label>
-                <input
+                <MathInput
                   className="form-input"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
                   value={formData.original_amount}
                   onChange={e => setFormData({ ...formData, original_amount: e.target.value })}
                   placeholder="0"
@@ -677,12 +675,10 @@ export function SharedExpenses() {
                 {formData.split_type === 'custom_amount' && (
                   <div style={{ marginTop: 8 }}>
                     <label className="form-label" style={{ fontSize: 12 }}>
-                      Monto exacto a reintegrar ($)
+                       Monto exacto a reintegrar ($)
                     </label>
-                    <input
+                    <MathInput
                       className="form-input"
-                      type="number"
-                      step="0.01"
                       value={formData.custom_value}
                       onChange={e => setFormData({ ...formData, custom_value: e.target.value })}
                       placeholder="Monto exacto"
@@ -696,11 +692,8 @@ export function SharedExpenses() {
                     <label className="form-label" style={{ fontSize: 12 }}>
                       Porcentaje a reintegrar (%)
                     </label>
-                    <input
+                    <MathInput
                       className="form-input"
-                      type="number"
-                      min="1"
-                      max="100"
                       value={formData.custom_value}
                       onChange={e => setFormData({ ...formData, custom_value: e.target.value })}
                       placeholder="Ej: 40 para el 40%"

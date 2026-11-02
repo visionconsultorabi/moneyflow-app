@@ -304,7 +304,7 @@ export function Dashboard() {
         ) : (
           <div className="accounts-grid">
             {bankAccounts.map(account => (
-              <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ cursor: 'pointer' }}>
+              <div key={account.id} className="account-card" onClick={() => navigate(`/accounts/${account.id}`)} style={{ cursor: 'pointer' }}>
                 <div className="account-info">
                   <div className="account-name">{account.name}</div>
                   <div className="account-institution">{account.institution || account.account_type}</div>
@@ -327,7 +327,7 @@ export function Dashboard() {
           </div>
           <div className="accounts-grid">
             {storeCredits.map(account => (
-              <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ cursor: 'pointer' }}>
+              <div key={account.id} className="account-card" onClick={() => navigate(`/accounts/${account.id}`)} style={{ cursor: 'pointer' }}>
                 <div className="account-info">
                   <div className="account-name">{account.name}</div>
                   <div className="account-institution">Saldo a favor</div>
@@ -357,7 +357,7 @@ export function Dashboard() {
               const pct = limit ? Math.round((used / limit) * 100) : 0;
               const utilClass = pct > 80 ? 'high' : pct > 50 ? 'medium' : 'low';
               return (
-                <div key={card.id} className="card" onClick={() => navigate(`/transactions?account=${card.id}`)} style={{ cursor: 'pointer' }}>
+                <div key={card.id} className="card" onClick={() => navigate(`/accounts/${card.id}`)} style={{ cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                     <div>
                       <div className="account-name">{card.name}</div>

@@ -1,10 +1,11 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, Category, CreditCardStatement, SplitType, PaidBy } from '../types/database';
 import { ArrowLeft, Users } from 'lucide-react';
 import { CompactSelector } from '../components/CompactSelector';
+import { MathInput } from '../components/MathInput';
 import {
   addSharedExpense,
   calculateSplitAmount,
@@ -26,6 +27,10 @@ const SPLIT_OPTIONS: { type: SplitType; label: string; desc: string }[] = [
 export function NewTransaction() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedAccountId = searchParams.get('account') || '';
+  const preselectedType = (searchParams.get('type') as 'expense' | 'income' | 'transfer') || 'expense';
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [creditCards, setCreditCards] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -34,9 +39,9 @@ export function NewTransaction() {
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
-    type: 'expense' as 'expense' | 'income' | 'transfer',
+    type: preselectedType,
     amount: '',
-    account_id: '',
+    account_id: preselectedAccountId,
     category_id: '',
     description: '',
     transaction_date: new Date().toISOString().split('T')[0],
@@ -78,11 +83,38 @@ export function NewTransaction() {
     ]);
     if (accsRes.data) {
       const all = accsRes.data as Account[];
-      setAccounts(all.filter(a => a.account_type !== 'credit_card'));
-      setCreditCards(all.filter(a => a.account_type === 'credit_card'));
-      // Auto-select first account (prefer bank/cash for source)
-      const firstSource = all.find(a => a.account_type !== 'credit_card') || all[0];
-      if (firstSource) setForm(f => ({ ...f, account_id: firstSource.id }));
+      const bankAndOthers = all.filter(a => a.account_type !== 'credit_card');
+      const cards = all.filter(a => a.account_type === 'credit_card');
+      setAccounts(bankAndOthers);
+      setCreditCards(cards);
+
+      // Pre-select account if provided in search params
+      if (preselectedAccountId) {
+        const matchingCard = cards.find(c => c.id === preselectedAccountId);
+        const matchingAccount = bankAndOthers.find(a => a.id === preselectedAccountId);
+
+        if (matchingCard) {
+          setForm(f => ({
+            ...f,
+            type: preselectedType || 'expense',
+            payment_method: 'credit',
+            credit_card_id: matchingCard.id,
+            account_id: matchingCard.id,
+          }));
+        } else if (matchingAccount) {
+          const defaultPaymentMethod = matchingAccount.account_type === 'cash' ? 'cash' : 'debit';
+          setForm(f => ({
+            ...f,
+            type: preselectedType || 'expense',
+            payment_method: f.type === 'transfer' ? 'transfer' : defaultPaymentMethod,
+            account_id: matchingAccount.id,
+          }));
+        }
+      } else {
+        // Auto-select first account (prefer bank/cash for source)
+        const firstSource = bankAndOthers[0] || all[0];
+        if (firstSource) setForm(f => ({ ...f, account_id: firstSource.id }));
+      }
     }
     if (catsRes.data) setCategories(catsRes.data);
     if (statementsRes.data) setStatements(statementsRes.data);
@@ -299,20 +331,54 @@ export function NewTransaction() {
           <button className="btn btn-ghost" onClick={() => navigate(-1)} style={{ padding: 8, minHeight: 'auto' }}>
             <ArrowLeft size={22} />
           </button>
-          <h1 className="page-title">Nueva Transacción</h1>
+          <div>
+            <h1 className="page-title">
+              {form.type === 'income' ? 'Nuevo Ingreso' : form.type === 'transfer' ? 'Nueva Transferencia' : 'Nuevo Gasto'}
+            </h1>
+            {selectedAccount && preselectedAccountId && (
+              <p className="page-subtitle" style={{ color: 'var(--primary-400)', fontWeight: 500, fontSize: 13, marginTop: 2 }}>
+                {selectedAccount.icon || (isCreditCard ? '💳' : '🏦')} Cuenta predeterminada: {selectedAccount.name}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
         {/* Type selector */}
         <div className="tabs" style={{ marginBottom: 12 }}>
-          <button type="button" className={`tab ${form.type === 'expense' ? 'active' : ''}`} onClick={() => setForm({ ...form, type: 'expense', payment_method: 'debit' })}>
+          <button
+            type="button"
+            className={`tab ${form.type === 'expense' ? 'active' : ''}`}
+            onClick={() => setForm(f => ({
+              ...f,
+              type: 'expense',
+              payment_method: f.credit_card_id && creditCards.some(c => c.id === f.credit_card_id) ? 'credit' : (f.payment_method === 'transfer' ? 'debit' : f.payment_method)
+            }))}
+          >
             Gasto
           </button>
-          <button type="button" className={`tab ${form.type === 'income' ? 'active' : ''}`} onClick={() => setForm({ ...form, type: 'income', payment_method: 'debit' })}>
+          <button
+            type="button"
+            className={`tab ${form.type === 'income' ? 'active' : ''}`}
+            onClick={() => setForm(f => ({
+              ...f,
+              type: 'income',
+              payment_method: f.payment_method === 'credit' || f.payment_method === 'transfer' ? 'debit' : f.payment_method,
+              account_id: accounts.some(a => a.id === f.account_id) ? f.account_id : (accounts[0]?.id || '')
+            }))}
+          >
             Ingreso
           </button>
-          <button type="button" className={`tab ${form.type === 'transfer' ? 'active' : ''}`} onClick={() => setForm({ ...form, type: 'transfer', payment_method: 'transfer' })}>
+          <button
+            type="button"
+            className={`tab ${form.type === 'transfer' ? 'active' : ''}`}
+            onClick={() => setForm(f => ({
+              ...f,
+              type: 'transfer',
+              payment_method: 'transfer'
+            }))}
+          >
             Transferencia
           </button>
         </div>
@@ -325,11 +391,8 @@ export function NewTransaction() {
               <span className="amount-currency">
                 {new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(0).replace(/\d/g, '').trim()}
               </span>
-              <input
+              <MathInput
                 className="form-input amount-input"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
                 value={form.amount}
                 onChange={e => setForm({ ...form, amount: e.target.value })}
                 placeholder="0"
@@ -344,13 +407,42 @@ export function NewTransaction() {
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Método de Pago</label>
               <div className="tabs" style={{ padding: 2 }}>
-                <button type="button" className={`tab ${form.payment_method === 'cash' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'cash' })}>
+                <button
+                  type="button"
+                  className={`tab ${form.payment_method === 'cash' ? 'active' : ''}`}
+                  onClick={() => setForm(f => {
+                    const cashAcc = accounts.find(a => a.account_type === 'cash');
+                    return {
+                      ...f,
+                      payment_method: 'cash',
+                      account_id: cashAcc ? cashAcc.id : (accounts.some(a => a.id === f.account_id) ? f.account_id : accounts[0]?.id || '')
+                    };
+                  })}
+                >
                   Efectivo
                 </button>
-                <button type="button" className={`tab ${form.payment_method === 'debit' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'debit' })}>
+                <button
+                  type="button"
+                  className={`tab ${form.payment_method === 'debit' ? 'active' : ''}`}
+                  onClick={() => setForm(f => ({
+                    ...f,
+                    payment_method: 'debit',
+                    account_id: accounts.some(a => a.id === f.account_id && a.account_type !== 'cash')
+                      ? f.account_id
+                      : (accounts.find(a => a.account_type !== 'cash')?.id || accounts[0]?.id || '')
+                  }))}
+                >
                   Débito
                 </button>
-                <button type="button" className={`tab ${form.payment_method === 'credit' ? 'active' : ''}`} onClick={() => setForm({ ...form, payment_method: 'credit' })}>
+                <button
+                  type="button"
+                  className={`tab ${form.payment_method === 'credit' ? 'active' : ''}`}
+                  onClick={() => setForm(f => ({
+                    ...f,
+                    payment_method: 'credit',
+                    credit_card_id: f.credit_card_id || (creditCards[0]?.id || '')
+                  }))}
+                >
                   Crédito
                 </button>
               </div>
@@ -557,10 +649,8 @@ export function NewTransaction() {
 
                     {form.shared_split_type === 'custom_amount' && (
                       <div style={{ marginTop: 8 }}>
-                        <input
+                        <MathInput
                           className="form-input"
-                          type="number"
-                          step="0.01"
                           value={form.shared_custom_value}
                           onChange={e => setForm({ ...form, shared_custom_value: e.target.value })}
                           placeholder="Monto exacto a computar ($)"
@@ -570,11 +660,8 @@ export function NewTransaction() {
 
                     {form.shared_split_type === 'custom_percentage' && (
                       <div style={{ marginTop: 8 }}>
-                        <input
+                        <MathInput
                           className="form-input"
-                          type="number"
-                          min="1"
-                          max="100"
                           value={form.shared_custom_value}
                           onChange={e => setForm({ ...form, shared_custom_value: e.target.value })}
                           placeholder="Porcentaje exacto a computar (%)"

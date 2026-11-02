@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account } from '../types/database';
 import { Plus, X, Wallet, Edit2 } from 'lucide-react';
+import { MathInput } from '../components/MathInput';
 
 const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
@@ -144,7 +145,7 @@ export function Accounts() {
       ) : (
         <div className="accounts-grid">
           {accounts.map(account => (
-            <div key={account.id} className="account-card" onClick={() => navigate(`/transactions?account=${account.id}`)} style={{ display: 'flex', flexDirection: 'column', gap: 8, position: 'relative', padding: '12px 14px', cursor: 'pointer' }}>
+            <div key={account.id} className="account-card" onClick={() => navigate(`/accounts/${account.id}`)} style={{ display: 'flex', flexDirection: 'column', gap: 8, position: 'relative', padding: '12px 14px', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div className="account-info">
@@ -217,7 +218,7 @@ export function Accounts() {
               </div>
               <div className="form-group">
                 <label className="form-label">Saldo Inicial</label>
-                <input className="form-input" type="number" inputMode="decimal" step="0.01" value={form.initial_balance} onChange={e => setForm({...form, initial_balance: e.target.value})} placeholder="0" />
+                <MathInput className="form-input" value={form.initial_balance} onChange={e => setForm({...form, initial_balance: e.target.value})} placeholder="0" />
               </div>
               <div className="form-group">
                 <label className="form-label">Color</label>

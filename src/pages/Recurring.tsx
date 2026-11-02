@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { RecurringTransaction, Category, Account } from '../types/database';
 import { Plus, RefreshCw, X, Trash2 } from 'lucide-react';
+import { MathInput } from '../components/MathInput';
 
 const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
@@ -122,7 +123,7 @@ export function Recurring() {
               </div>
               <div className="form-group">
                 <label className="form-label">Monto</label>
-                <input className="form-input" type="number" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} placeholder="0" required />
+                <MathInput className="form-input" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} placeholder="0" required />
               </div>
               <div className="form-group">
                 <label className="form-label">Frecuencia</label>

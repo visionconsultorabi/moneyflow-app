@@ -38,6 +38,7 @@ function AppRoutes() {
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/accounts" element={<Accounts />} />
+        <Route path="/accounts/:id" element={<Transactions />} />
         <Route path="/cards" element={<CreditCards />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/shared" element={<SharedExpenses />} />

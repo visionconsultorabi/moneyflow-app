@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import type { Transaction, Account, Category, SharedExpense, SplitType, PaidBy } from '../types/database';
-import { Plus, Search, ArrowRightLeft, Trash2, X, Edit2, Download, Users } from 'lucide-react';
+import { Plus, Search, ArrowRightLeft, Trash2, X, Edit2, Download, Users, ArrowLeft } from 'lucide-react';
 import { CompactSelector } from '../components/CompactSelector';
+import { MathInput } from '../components/MathInput';
 import { exportAllDataToExcel } from '../lib/exportExcel';
 import {
   getSharedExpenses,
@@ -15,6 +17,15 @@ import {
   getDefaultPersonName,
   setDefaultPersonName,
 } from '../lib/sharedExpenses';
+
+const accountTypeLabels: Record<string, string> = {
+  bank: 'Cuenta Bancaria',
+  cash: 'Efectivo',
+  digital_wallet: 'Billetera Digital',
+  investment: 'Inversión',
+  store_credit: 'Cuenta Corriente / Comercio',
+  credit_card: 'Tarjeta de Crédito',
+};
 
 const SPLIT_OPTIONS: { type: SplitType; label: string; desc: string }[] = [
   { type: 'half', label: '1/2 (50%)', desc: 'Dividir en 2' },
@@ -29,11 +40,14 @@ const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat(
 
 export function Transactions() {
   const { user } = useAuth();
+  const { privacyMode } = useTheme();
+  const showBalances = privacyMode;
   const navigate = useNavigate();
+  const { id: paramId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const accountFilter = searchParams.get('account');
+  const accountFilter = paramId || searchParams.get('account');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [accountName, setAccountName] = useState<string>('');
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'expense' | 'income' | 'transfer'>('all');
   const [search, setSearch] = useState('');
@@ -78,12 +92,16 @@ export function Transactions() {
   async function loadTransactions() {
     setLoading(true);
 
-    // Load account name if filtering by account
+    // Load account details if filtering by account
     if (accountFilter) {
-      const { data: accData } = await supabase.from('accounts').select('name').eq('id', accountFilter).single();
-      if (accData) setAccountName(accData.name);
+      const { data: accData } = await supabase.from('accounts').select('*').eq('id', accountFilter).single();
+      if (accData) {
+        setSelectedAccount(accData);
+      } else {
+        setSelectedAccount(null);
+      }
     } else {
-      setAccountName('');
+      setSelectedAccount(null);
     }
 
     let query = supabase
@@ -103,7 +121,12 @@ export function Transactions() {
   }
 
   function clearAccountFilter() {
-    setSearchParams({});
+    if (paramId) {
+      navigate('/transactions');
+    } else {
+      setSearchParams({});
+    }
+    setSelectedAccount(null);
   }
 
   async function startEdit(tx: Transaction) {
@@ -285,35 +308,159 @@ export function Transactions() {
   return (
     <div>
       <div className="page-header">
-        <div>
-          <h1 className="page-title">Transacciones</h1>
-          <p className="page-subtitle">{filtered.length} movimientos</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {selectedAccount && (
+            <button
+              className="btn btn-ghost"
+              onClick={() => navigate(-1)}
+              style={{ padding: 6, minHeight: 'auto', borderRadius: '50%' }}
+              title="Volver"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          )}
+          <div>
+            <h1 className="page-title">{selectedAccount ? selectedAccount.name : 'Transacciones'}</h1>
+            <p className="page-subtitle">
+              {filtered.length} {filtered.length === 1 ? 'movimiento' : 'movimientos'}
+              {selectedAccount ? ` · ${selectedAccount.currency}` : ''}
+            </p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary" onClick={() => exportAllDataToExcel()} title="Exportar a Excel">
             <Download size={18} /> Excel
           </button>
-          <button className="btn btn-primary" onClick={() => navigate('/new-transaction')}>
-            <Plus size={18} /> Nueva
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate(selectedAccount ? `/new-transaction?account=${selectedAccount.id}&type=expense` : '/new-transaction')}
+          >
+            <Plus size={18} /> {selectedAccount ? 'Cargar Gasto' : 'Nueva'}
           </button>
         </div>
       </div>
 
-      {/* Account Filter Badge */}
-      {accountFilter && accountName && (
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          background: 'var(--primary-alpha)', color: 'var(--primary)',
-          padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
-          marginBottom: 8
-        }}>
-          📋 Movimientos de: {accountName}
-          <button onClick={clearAccountFilter} style={{
-            background: 'none', border: 'none', cursor: 'pointer', padding: 2,
-            display: 'flex', alignItems: 'center', color: 'var(--primary)'
-          }}>
-            <X size={14} />
-          </button>
+      {/* Account Details & Balance Card */}
+      {selectedAccount && (
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '16px 20px',
+            marginBottom: 16,
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          {/* Top row: Account Name, Type and Close Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 26, lineHeight: 1 }}>
+                {selectedAccount.icon || (selectedAccount.account_type === 'credit_card' ? '💳' : '🏦')}
+              </span>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--text-primary)' }}>
+                  {selectedAccount.name}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {selectedAccount.institution || accountTypeLabels[selectedAccount.icon === '🏪' ? 'store_credit' : selectedAccount.account_type] || 'Cuenta'}
+                  {selectedAccount.last_four_digits ? ` ···· ${selectedAccount.last_four_digits}` : ''}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={clearAccountFilter}
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: 12, color: 'var(--text-muted)' }}
+              title="Quitar filtro y ver todas las cuentas"
+            >
+              <X size={14} style={{ marginRight: 4 }} /> Ver todas
+            </button>
+          </div>
+
+          {/* Balance Row */}
+          <div
+            style={{
+              padding: '12px 0',
+              borderTop: '1px solid var(--border-subtle)',
+              borderBottom: '1px solid var(--border-subtle)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>
+                {selectedAccount.account_type === 'credit_card' ? 'Saldo Disponible' : selectedAccount.icon === '🏪' ? 'Saldo a Favor' : 'Saldo Actual'}
+              </div>
+              <div
+                style={{
+                  fontSize: 26,
+                  fontWeight: 600,
+                  color: selectedAccount.account_type === 'credit_card'
+                    ? 'var(--text-primary)'
+                    : Number(selectedAccount.current_balance) >= 0
+                    ? 'var(--success)'
+                    : 'var(--danger)',
+                  letterSpacing: '-0.5px',
+                }}
+              >
+                {showBalances ? formatMoney(Number(selectedAccount.current_balance), selectedAccount.currency) : '****'}
+              </div>
+            </div>
+
+            {selectedAccount.account_type === 'credit_card' && (
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  Límite: <strong style={{ color: 'var(--text-primary)' }}>{showBalances ? formatMoney(Number(selectedAccount.credit_limit || 0), selectedAccount.currency) : '****'}</strong>
+                </div>
+                {(() => {
+                  const limit = Number(selectedAccount.credit_limit) || 0;
+                  const available = Number(selectedAccount.current_balance);
+                  const used = Math.max(0, limit - available);
+                  const pct = limit ? Math.min(Math.round((used / limit) * 100), 100) : 0;
+                  return (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                      Usado: <strong style={{ color: pct > 80 ? 'var(--danger)' : 'var(--text-secondary)' }}>{showBalances ? formatMoney(used, selectedAccount.currency) : '****'} ({pct}%)</strong>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+            <button
+              className="btn btn-primary btn-sm"
+              style={{ flex: 1, minWidth: 130, padding: '8px 14px' }}
+              onClick={() => navigate(`/new-transaction?account=${selectedAccount.id}&type=expense`)}
+            >
+              <Plus size={16} /> Cargar Gasto
+            </button>
+
+            {selectedAccount.account_type !== 'credit_card' && (
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ flex: 1, minWidth: 130, padding: '8px 14px' }}
+                onClick={() => navigate(`/new-transaction?account=${selectedAccount.id}&type=income`)}
+              >
+                <Plus size={16} /> Cargar Ingreso
+              </button>
+            )}
+
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ padding: '8px 12px' }}
+              title="Transferir desde esta cuenta"
+              onClick={() => navigate(`/new-transaction?account=${selectedAccount.id}&type=transfer`)}
+            >
+              <ArrowRightLeft size={16} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -426,10 +573,8 @@ export function Transactions() {
             <form onSubmit={saveEdit}>
               <div className="form-group">
                 <label className="form-label">Monto</label>
-                <input 
+                <MathInput 
                   className="form-input" 
-                  type="number" 
-                  step="0.01" 
                   value={editForm.amount} 
                   onChange={e => setEditForm({...editForm, amount: e.target.value})} 
                   required 
@@ -589,10 +734,8 @@ export function Transactions() {
 
                         {editForm.shared_split_type === 'custom_amount' && (
                           <div style={{ marginTop: 8 }}>
-                            <input
+                            <MathInput
                               className="form-input"
-                              type="number"
-                              step="0.01"
                               value={editForm.shared_custom_value}
                               onChange={e => setEditForm({ ...editForm, shared_custom_value: e.target.value })}
                               placeholder="Monto exacto a computar ($)"
@@ -603,11 +746,8 @@ export function Transactions() {
 
                         {editForm.shared_split_type === 'custom_percentage' && (
                           <div style={{ marginTop: 8 }}>
-                            <input
+                            <MathInput
                               className="form-input"
-                              type="number"
-                              min="1"
-                              max="100"
                               value={editForm.shared_custom_value}
                               onChange={e => setEditForm({ ...editForm, shared_custom_value: e.target.value })}
                               placeholder="Porcentaje exacto a computar (%)"

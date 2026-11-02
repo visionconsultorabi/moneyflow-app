@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Budget, Category } from '../types/database';
 import { Plus, X, PieChart, Settings, Edit2, Trash2, RefreshCw } from 'lucide-react';
 import { CompactSelector } from '../components/CompactSelector';
+import { MathInput } from '../components/MathInput';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -437,10 +438,8 @@ export function Budgets() {
                 </div>
                 {editingInitialBalance ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <input
+                    <MathInput
                       className="form-input"
-                      type="number"
-                      step="0.01"
                       value={tempInitialBalance}
                       onChange={e => setTempInitialBalance(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') handleUpdateInitialBalance(); if (e.key === 'Escape') setEditingInitialBalance(false); }}
@@ -896,10 +895,9 @@ export function Budgets() {
                             setConceptLines(newLines);
                           }}
                         />
-                        <input
+                        <MathInput
                           className="form-input"
                           style={{ height: 32, fontSize: 13, textAlign: 'right' }}
-                          type="number"
                           placeholder="0"
                           value={line.amount}
                           onChange={e => {
@@ -919,7 +917,7 @@ export function Budgets() {
                   </div>
                 ) : (
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <input className="form-input" type="number" inputMode="numeric" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="50000" required={conceptLines.length === 0} />
+                    <MathInput className="form-input" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="50000" required={conceptLines.length === 0} />
                   </div>
                 )}
               </div>

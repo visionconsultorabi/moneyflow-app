@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { SavingsGoal } from '../types/database';
 import { Plus, Target, X, TrendingUp } from 'lucide-react';
+import { MathInput } from '../components/MathInput';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
@@ -137,11 +138,11 @@ export function Savings() {
               </div>
               <div className="form-group">
                 <label className="form-label">Monto objetivo</label>
-                <input className="form-input" type="number" value={form.target_amount} onChange={e => setForm({...form, target_amount: e.target.value})} placeholder="0" required />
+                <MathInput className="form-input" value={form.target_amount} onChange={e => setForm({...form, target_amount: e.target.value})} placeholder="0" required />
               </div>
               <div className="form-group">
                 <label className="form-label">Ahorro inicial (opcional)</label>
-                <input className="form-input" type="number" value={form.current_amount} onChange={e => setForm({...form, current_amount: e.target.value})} placeholder="0" />
+                <MathInput className="form-input" value={form.current_amount} onChange={e => setForm({...form, current_amount: e.target.value})} placeholder="0" />
               </div>
               <div className="form-group">
                 <label className="form-label">Fecha límite (opcional)</label>

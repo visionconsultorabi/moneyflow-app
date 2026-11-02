@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Account, InstallmentPlan, CreditCardStatement } from '../types/database';
 import { Plus, X, CreditCard, Edit2, CheckCircle } from 'lucide-react';
+import { MathInput } from '../components/MathInput';
 
 const formatMoney = (amount: number, currency = 'ARS') => new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
 
@@ -391,7 +392,7 @@ export function CreditCards() {
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
-                  <button onClick={(e) => { e.stopPropagation(); navigate(`/transactions?account=${card.id}`); }} className="btn btn-ghost btn-xs" style={{ fontSize: 11 }}>
+                  <button onClick={(e) => { e.stopPropagation(); navigate(`/accounts/${card.id}`); }} className="btn btn-ghost btn-xs" style={{ fontSize: 11 }}>
                     Movimientos
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); startEdit(card); }} className="btn btn-ghost btn-xs">
@@ -474,7 +475,7 @@ export function CreditCards() {
               </div>
               <div className="form-group">
                 <label className="form-label">Límite de Crédito</label>
-                <input className="form-input" type="number" inputMode="numeric" value={form.credit_limit} onChange={e => setForm({...form, credit_limit: e.target.value})} placeholder="500000" required />
+                <MathInput className="form-input" value={form.credit_limit} onChange={e => setForm({...form, credit_limit: e.target.value})} placeholder="500000" required />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
@@ -488,7 +489,7 @@ export function CreditCards() {
               </div>
               <div className="form-group">
                 <label className="form-label">Tasa de Interés Anual (%)</label>
-                <input className="form-input" type="number" step="0.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} placeholder="Opcional" />
+                <MathInput className="form-input" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} placeholder="Opcional" />
               </div>
               {bankAccounts.length > 0 && (
                 <div className="form-group">
@@ -540,11 +541,11 @@ export function CreditCards() {
               </div>
               <div className="form-group">
                 <label className="form-label">Monto Total</label>
-                <input className="form-input" type="number" step="0.01" value={statementForm.total_amount} onChange={e => setStatementForm({...statementForm, total_amount: e.target.value})} placeholder="0.00" required />
+                <MathInput className="form-input" value={statementForm.total_amount} onChange={e => setStatementForm({...statementForm, total_amount: e.target.value})} placeholder="0.00" required />
               </div>
               <div className="form-group">
                 <label className="form-label">Pago Mínimo</label>
-                <input className="form-input" type="number" step="0.01" value={statementForm.minimum_payment} onChange={e => setStatementForm({...statementForm, minimum_payment: e.target.value})} placeholder="0.00" />
+                <MathInput className="form-input" value={statementForm.minimum_payment} onChange={e => setStatementForm({...statementForm, minimum_payment: e.target.value})} placeholder="0.00" />
               </div>
               <button type="submit" className="btn btn-primary btn-block btn-lg">Guardar Resumen</button>
             </form>
