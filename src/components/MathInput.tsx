@@ -1,4 +1,4 @@
-import React, { forwardRef, useRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useRef } from 'react';
 import { evaluateMathExpression, hasMathOperation } from '../lib/mathUtils';
 
 export interface MathInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
@@ -15,9 +15,17 @@ export const MathInput = forwardRef<HTMLInputElement, MathInputProps>(({
   placeholder = '0',
   title,
   ...restProps
-}, ref) => {
-  const internalRef = useRef<HTMLInputElement>(null);
-  useImperativeHandle(ref, () => internalRef.current as HTMLInputElement);
+}, forwardedRef) => {
+  const internalRef = useRef<HTMLInputElement | null>(null);
+
+  const handleRef = (node: HTMLInputElement | null) => {
+    internalRef.current = node;
+    if (typeof forwardedRef === 'function') {
+      forwardedRef(node);
+    } else if (forwardedRef) {
+      (forwardedRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
+    }
+  };
 
   const stringValue = value !== undefined && value !== null ? String(value) : '';
 
@@ -118,7 +126,7 @@ export const MathInput = forwardRef<HTMLInputElement, MathInputProps>(({
   return (
     <input
       {...restProps}
-      ref={internalRef}
+      ref={handleRef}
       type="text"
       inputMode="text"
       className={className}
